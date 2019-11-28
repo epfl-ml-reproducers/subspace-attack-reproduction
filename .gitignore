@@ -243,6 +243,7 @@ tags
 # End of https://www.gitignore.io/api/vim,python,pycharm,jupyternotebooks,visualstudiocode
 
 # Exclude pretrained files, which can be downloaded here:
+# https://drive.google.com/drive/folders/1bsXS-Fiw9_N2zlY2O2c78W1qkZpO0MY6?usp=sharing
 pretrained
 
 # Exclude CIFAR data, which are downloaded automatically

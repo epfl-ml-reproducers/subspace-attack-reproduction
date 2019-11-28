@@ -5,3 +5,5 @@ Attempt to reproduce the NeurIPS 2019 paper [Subspace Attack: Exploiting Promisi
 The original code of the paper can be found [here](https://github.com/ZiangYan/subspace-attack.pytorch). We are trying to reproduce the attack to GDAS model trained on CIFAR-10 dataset, without using and looking at the original code.
 
 This project is done as project for the [CS-433 Machine Learning Course](https://www.epfl.ch/labs/mlo/machine-learning-cs-433/) at [EPFL](https://epfl.ch/en), and as part of the [NeurIPS 2019 Reproducibility Challenge](https://reproducibility-challenge.github.io/neurips2019/).
+
+Pretrained models we are using can be downloaded [here](https://drive.google.com/drive/folders/1bsXS-Fiw9_N2zlY2O2c78W1qkZpO0MY6?usp=sharing).
