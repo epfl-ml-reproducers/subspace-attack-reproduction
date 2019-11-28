@@ -121,7 +121,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -244,6 +243,7 @@ tags
 
 # Exclude pretrained files, which can be downloaded here:
 # https://drive.google.com/drive/folders/1bsXS-Fiw9_N2zlY2O2c78W1qkZpO0MY6?usp=sharing
+
 pretrained
 
 # Exclude CIFAR data, which are downloaded automatically
