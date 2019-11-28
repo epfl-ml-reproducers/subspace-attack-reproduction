@@ -109,7 +109,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
             print(f'{str(q_counter)} queries have been made')
         
         # Load random reference model
-        random_model = random.randint(0, len(reference_models) - 1)
+        random_model = random.randint(0, len(references) - 1)
         model = references[random_model]
         model.eval()
 
