@@ -1,2 +1,2 @@
-__Note:__ Write here questions that we need to ask the TAs
+- How to load `.pth` state_dict? Should we add the class of the original net?
 
