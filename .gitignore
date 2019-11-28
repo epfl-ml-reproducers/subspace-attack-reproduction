@@ -241,3 +241,9 @@ tags
 .history
 
 # End of https://www.gitignore.io/api/vim,python,pycharm,jupyternotebooks,visualstudiocode
+
+# Exclude pretrained files, which can be downloaded here:
+pretrained
+
+# Exclude CIFAR data, which are downloaded automatically
+data
