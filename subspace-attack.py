@@ -1,6 +1,7 @@
 import random
 import torch
 from torchvision import datasets, transforms
+import numpy as np
 
 from src.import_models import load_model, MODELS_DATA, MODELS_DIRECTORY
 from src.plots import imshow
@@ -35,14 +36,14 @@ def main():
         victim_model = victim_model.to('cuda')
         
     # Hyper-parameters
-    tau = 0.1
-    epsilon = 8./255
+    tau = 1
+    epsilon = 8 / 255
     delta = 1.0
     eta_g = 100
     eta = 0.1
 
     counter = 0
-    limit = 100
+    limit = 1000
 
     queries = []
 
@@ -62,9 +63,12 @@ def main():
     results = np.array(queries)
     failed = results == -1
 
+    print(f'\n-------------\n')
+    print(f'Experiment finished:\n')
     print(f'Mean number of queries: {results[~failed].mean()}')
     print(f'Median number of queries: {np.median(results[~failed])}')
     print(f'Number of failed queries: {len(results[failed])}')
+    print(f'\n-------------\n')
     
     
 def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, references, limit=10000, verbose=False, show_images=False):
