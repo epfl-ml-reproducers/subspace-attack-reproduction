@@ -256,3 +256,4 @@ outputs
 config.json
 aml_config
 .amlignore
+.vscode/settings.json

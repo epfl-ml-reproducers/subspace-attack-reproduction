@@ -246,10 +246,6 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
                 imshow(x_adv[0].cpu())
             success = True
 
-    print(f'Gradient differences: {gradient_differences}')
-    print(f'True gradient norms: {true_gradient_norms}')
-    print(f'Estimated gradient norms: {estimated_gradient_norms}')
-
     return q_counter if success else -1, gradient_differences, true_gradient_norms, estimated_gradient_norms
 
 
