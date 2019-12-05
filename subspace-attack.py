@@ -1,13 +1,47 @@
 import random
 import torch
+import argparse
 from torchvision import datasets, transforms
 import numpy as np
 
 from src.import_models import load_model, MODELS_DATA, MODELS_DIRECTORY
 from src.plots import imshow
 
+DATASETS = ['CIFAR-10']
+REFERENCE_MODELS = ['vgg11_bn', 'vgg13_bn',
+                    'vgg16_bn', 'vgg19_bn', 'AlexNet_bn']
+DEFAULT_REFERENCE_MODELS = ['vgg11_bn', 'vgg13_bn',
+                            'vgg16_bn', 'vgg19_bn', 'AlexNet_bn']
+VICTIM_MODELS = ['gdas']
+DEFAULT_VICTIM_MODEL = 'gdas'
+INF = float('inf')
 
-def main():
+
+def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
+         delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose):
+
+    print('----- Running experiment with the following settings -----')
+    
+    print('\n----- Models information -----')
+    print(f'Victim model: {victim_model_name}')
+    print(f'Reference models names: {reference_model_names}')
+    print(f'Dataset: {dataset}')
+    
+    print(f'\n------ Hyperparameters -----')
+    print(f'tau: {tau}')
+    print(f'epsilon: {epsilon}')
+    print(f'delta: {delta}')
+    print(f'eta: {eta}')
+    print(f'eta_g: {eta_g}')
+
+    print('\n----- General settings -----')
+    print(f'Number of images: {n_images}')
+    print(f'Limit of iterations per image: {image_limit}')
+    print(f'Compare gradients: {compare_gradients}')
+    print(f'Verbose: {verbose}')
+
+    print('----- Beginning -----')
+
 
     # Load CIFAR10 dataset
     preprocess = transforms.Compose([
@@ -23,15 +57,11 @@ def main():
                'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     num_classes = len(classes)
-
     # Load reference models
-    reference_model_names = ['vgg11_bn', 'vgg13_bn',
-                             'vgg16_bn', 'vgg19_bn', 'AlexNet_bn']
     reference_models = list(map(lambda name: load_model(
         MODELS_DIRECTORY, MODELS_DATA, name, num_classes), reference_model_names))
 
     # Load victim model
-    victim_model_name = 'gdas'
     victim_model = load_model(
         MODELS_DIRECTORY, MODELS_DATA, victim_model_name, num_classes)
     _ = victim_model.eval()
@@ -41,15 +71,7 @@ def main():
             map(lambda model: model.to('cuda'), reference_models))
         victim_model = victim_model.to('cuda')
 
-    # Hyper-parameters
-    tau = 1
-    epsilon = 8 / 255
-    delta = 1.0
-    eta_g = 100
-    eta = 0.1
-
     counter = 0
-    limit = 1000
 
     queries = []
 
@@ -58,13 +80,14 @@ def main():
         print(f'Target image number {counter}')
 
         queries_counter = attack(data, target, tau, epsilon, delta,
-                                 eta_g, eta, victim_model, reference_models, verbose=True)
+                                 eta_g, eta, victim_model, reference_models,
+                                 image_limit, verbose)
 
         counter += 1
 
         queries.append(queries_counter)
 
-        if counter == limit:
+        if counter == n_images:
             break
 
     results = np.array(queries)
@@ -78,7 +101,7 @@ def main():
     print(f'\n-------------\n')
 
 
-def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, references, limit=10000, verbose=False, show_images=False, truest_label=True):
+def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, references, limit, verbose, show_images=False):
 
     # Regulators
     regmin = input_batch - epsilon
@@ -94,7 +117,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
 
     # Set the label to be used (the predicted one vs the true one)
     y = true_label
-    
+
     # Set CrossEntropy loss
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -119,14 +142,16 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
     # Create the array where we save the difference between
     # the true gradient and the estimated one
     gradient_differences = []
-    
+    true_gradient_norms = []
+    estimated_gradient_norms = []
+
     success = False
 
     while not success and q_counter < limit:
 
         if q_counter % 50 == 0 and verbose:
             # imshow(x_adv[0].cpu())
-            print(f'Iteration number: {str(q_counter / 2)}')
+            print(f'Iteration number: {str(q_counter // 2)}')
             print(f'{str(q_counter)} queries have been made')
 
         # Load random reference model
@@ -176,8 +201,11 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
         true_loss.backward()
         true_gradient = x_adv.grad.clone()
 
-        gradient_difference = torch.dist(g, true_gradient, float('inf'))
+        gradient_difference = torch.dist(
+            g, true_gradient, 2) / (true_gradient.norm(2) + g.norm()) * 2
         gradient_differences.append(gradient_difference.item())
+        true_gradient_norms.append(true_gradient.norm(2).item())
+        estimated_gradient_norms.append(g.norm(2).item())
 
         # Update the adverserial example - L13-15
         with torch.no_grad():
@@ -201,10 +229,63 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
                 imshow(x_adv[0].cpu())
             success = True
 
-    print(gradient_differences)
+    print(f'Gradient differences: {gradient_differences}')
+    print(f'True gradient norms: {true_gradient_norms}')
+    print(f'Estimated gradient norms: {estimated_gradient_norms}')
 
     return q_counter if success else -1
 
 
 if __name__ == '__main__':
-    main()
+
+    parser = argparse.ArgumentParser()
+
+    # Dataset and models to be used
+    parser.add_argument('-ds', '--dataset', help='The dataset to be used.',
+                        default='CIFAR-10', choices=DATASETS)
+    parser.add_argument('--reference-models', help='The reference models to be used.',
+                        nargs='+', default=REFERENCE_MODELS, choices=REFERENCE_MODELS)
+    parser.add_argument('--victim-model', help='The model to be attacked.',
+                        default=DEFAULT_VICTIM_MODEL, choices=VICTIM_MODELS)
+
+    # Hyperparamters
+    parser.add_argument('--tau', help='Bandit exploration.',
+                        default=1, type=int)
+    parser.add_argument('--epsilon', help='The norm budget.',  # TODO: understand what tau really is
+                        default=8/255, type=float)
+    parser.add_argument(
+        '--delta', help='Finite difference probe', default=1, type=float)
+    parser.add_argument('--eta', help='Image learning rate.',
+                        default=0.01, type=float)
+    parser.add_argument('--eta_g', help='OCO learning rate.',
+                        default=100, type=float)
+
+    # Experiment settings
+    parser.add_argument('--n-images', help='The number of images on which the attack has to be run',
+                        default=1000, type=int)
+    parser.add_argument('--image-limit', help='Limit of iterations to be done for each image',
+                        default=10000, type=int)
+    parser.add_argument('--compare-gradients', help='Whether the program should output a comparison between the estimated and the true gradients.',
+                        default=False, type=bool)
+    parser.add_argument(
+        '--verbose', help='Prints information every 50 image-iterations if true', default=True, type=bool)
+
+    args = parser.parse_args()
+
+    victim_model = args.victim_model
+    reference_models = args.reference_models
+    dataset = args.dataset
+
+    tau = args.tau
+    epsilon = args.epsilon
+    delta = args.delta
+    eta = args.eta
+    eta_g = args.eta_g
+
+    n_images = args.n_images
+    image_limit = args.image_limit
+    compare_gradients = args.compare_gradients
+    verbose = args.verbose
+
+    main(victim_model, reference_models, dataset, tau, epsilon,
+         delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose)
