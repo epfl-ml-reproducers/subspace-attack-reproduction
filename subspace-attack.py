@@ -1,6 +1,9 @@
 import random
 import torch
 import argparse
+import os
+import datetime
+import time
 from torchvision import datasets, transforms
 import numpy as np
 
@@ -16,17 +19,18 @@ VICTIM_MODELS = ['gdas']
 DEFAULT_VICTIM_MODEL = 'gdas'
 INF = float('inf')
 
+OUTPUT_DIR = 'output/'
 
 def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
          delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose):
 
     print('----- Running experiment with the following settings -----')
-    
+
     print('\n----- Models information -----')
     print(f'Victim model: {victim_model_name}')
     print(f'Reference models names: {reference_model_names}')
     print(f'Dataset: {dataset}')
-    
+
     print(f'\n------ Hyperparameters -----')
     print(f'tau: {tau}')
     print(f'epsilon: {epsilon}')
@@ -39,9 +43,6 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     print(f'Limit of iterations per image: {image_limit}')
     print(f'Compare gradients: {compare_gradients}')
     print(f'Verbose: {verbose}')
-
-    print('----- Beginning -----')
-
 
     # Load CIFAR10 dataset
     preprocess = transforms.Compose([
@@ -75,13 +76,19 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
 
     queries = []
 
+    run_time = datetime.datetime.now().replace(microsecond=0)
+    tic = time.time()
+    
+    print(f'\n----- Beginning at {run_time} -----')
+
     for data, target in data_loader:
-        print(f'\n-------------\n')
+        print(f'\n--------------------------------------------\n')
         print(f'Target image number {counter}')
 
-        queries_counter = attack(data, target, tau, epsilon, delta,
-                                 eta_g, eta, victim_model, reference_models,
-                                 image_limit, verbose)
+        queries_counter, gradient_differences, true_gradient_norms, estimated_gradient_norms = \
+            attack(data, target, tau, epsilon, delta,
+                   eta_g, eta, victim_model, reference_models,
+                   image_limit, verbose)
 
         counter += 1
 
@@ -90,15 +97,30 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
         if counter == n_images:
             break
 
-    results = np.array(queries)
-    failed = results == -1
+    total_time = time.time() - tic
+
+    queries_array = np.array(queries)
+    failed = queries_array == -1
 
     print(f'\n-------------\n')
     print(f'Experiment finished:\n')
-    print(f'Mean number of queries: {results[~failed].mean()}')
-    print(f'Median number of queries: {np.median(results[~failed])}')
-    print(f'Number of failed queries: {len(results[failed])}')
+    print(f'Mean number of queries: {queries_array[~failed].mean()}')
+    print(f'Median number of queries: {np.median(queries_array[~failed])}')
+    print(f'Number of failed queries: {len(queries_array[failed])}')
+    print(f'Total time: {total_time} s')
     print(f'\n-------------\n')
+
+    run_subfolder = run_time.strftime('%Y-%m-%d.%H-%M')
+
+    results_path = OUTPUT_DIR + '/' + run_subfolder + '/'
+    
+
+    os.makedirs(results_path)
+
+    np.save(results_path + 'queries.npy', queries_array)
+    np.save(results_path + 'gradient_differences.npy', gradient_differences)
+    np.save(results_path + 'true_gradient_norms.npy', true_gradient_norms)
+    np.save(results_path + 'estimated_gradient_norms.npy', estimated_gradient_norms)
 
 
 def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, references, limit, verbose, show_images=False):
@@ -233,7 +255,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
     print(f'True gradient norms: {true_gradient_norms}')
     print(f'Estimated gradient norms: {estimated_gradient_norms}')
 
-    return q_counter if success else -1
+    return q_counter if success else -1, gradient_differences, true_gradient_norms, estimated_gradient_norms
 
 
 if __name__ == '__main__':

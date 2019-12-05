@@ -248,3 +248,6 @@ pretrained
 
 # Exclude CIFAR data, which are downloaded automatically
 data
+
+# Exclude output folder
+output
