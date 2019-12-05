@@ -1,0 +1,29 @@
+{
+    "script": "subspace-attack.py",
+    "arguments": ["--compare-gradients=False"],
+    "framework": "Python",
+    "communicator": "None",
+    "target": "local",
+    "environment": {
+        "python": {
+            "userManagedDependencies": true,
+            "interpreterPath": "/home/edoardo/miniconda3/envs/ml/bin/python"
+        },
+        "docker": {
+            "baseImage": "mcr.microsoft.com/azureml/base:0.2.4",
+            "enabled": false,
+            "baseImageRegistry": {
+                "address": null,
+                "username": null,
+                "password": null
+            }
+        }
+    },
+    "history": {
+        "outputCollection": true,
+        "snapshotProject": false,
+        "directoriesToWatch": [
+            "logs"
+        ]
+    }
+}

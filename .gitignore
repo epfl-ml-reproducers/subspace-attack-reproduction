@@ -250,4 +250,4 @@ pretrained
 data
 
 # Exclude output folder
-output
+outputs

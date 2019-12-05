@@ -135,6 +135,11 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
 
     victim.zero_grad()
     victim.eval()
+
+    if torch.cuda.is_available():
+        x_adv = x_adv.to('cuda')
+        victim = victim.to('cuda')
+
     predicted_y = victim(x_adv)
 
     # Set the label to be used (the predicted one vs the true one)
@@ -148,8 +153,6 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
 
     # move the input and model to GPU for speed if available
     if torch.cuda.is_available():
-        x_adv = x_adv.to('cuda')
-        y = y.to('cuda')
         g = g.to('cuda')
         regmin = regmin.to('cuda')
         regmax = regmax.to('cuda')
