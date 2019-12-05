@@ -19,7 +19,7 @@ VICTIM_MODELS = ['gdas']
 DEFAULT_VICTIM_MODEL = 'gdas'
 INF = float('inf')
 
-OUTPUT_DIR = 'output/'
+OUTPUT_DIR = 'outputs/'
 
 def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
          delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose):
@@ -224,7 +224,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
         true_gradient = x_adv.grad.clone()
 
         gradient_difference = torch.dist(
-            g, true_gradient, 2) / (true_gradient.norm(2) + g.norm()) * 2
+            g, true_gradient, 2) / (true_gradient.norm(2) + g.norm(2)) * 2
         gradient_differences.append(gradient_difference.item())
         true_gradient_norms.append(true_gradient.norm(2).item())
         estimated_gradient_norms.append(g.norm(2).item())
@@ -288,7 +288,7 @@ if __name__ == '__main__':
     parser.add_argument('--image-limit', help='Limit of iterations to be done for each image',
                         default=10000, type=int)
     parser.add_argument('--compare-gradients', help='Whether the program should output a comparison between the estimated and the true gradients.',
-                        default=False, type=bool)
+                        default=True, type=bool)
     parser.add_argument(
         '--verbose', help='Prints information every 50 image-iterations if true', default=True, type=bool)
 
