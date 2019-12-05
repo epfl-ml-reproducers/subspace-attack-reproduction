@@ -251,3 +251,8 @@ data
 
 # Exclude output folder
 outputs
+
+# Azure stuff
+config.json
+aml_config
+.amlignore
