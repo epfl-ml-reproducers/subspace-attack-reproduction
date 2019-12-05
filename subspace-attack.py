@@ -87,21 +87,16 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
     # Initialize the adversarial example
     x_adv = input_batch.clone()
     x_adv.requires_grad_(True)
+
     victim.zero_grad()
-    
     victim.eval()
     predicted_y = victim(x_adv)
 
     # Set the label to be used (the predicted one vs the true one)
-    y = true_label if truest_label else predicted_y
-
+    y = true_label
+    
     # Set CrossEntropy loss
     criterion = torch.nn.CrossEntropyLoss()
-
-    # Compute the true first gradient, for comparison purposes
-    true_first_loss = criterion(predicted_y, y)
-    true_first_loss.backward()
-    true_first_gradient = x_adv.grad
 
     # Initialize the gradient to be estimated
     g = torch.zeros_like(input_batch)
@@ -121,6 +116,10 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
         with torch.no_grad():
             imshow(x_adv[0].cpu())
 
+    # Create the array where we save the difference between
+    # the true gradient and the estimated one
+    gradient_differences = []
+    
     success = False
 
     while not success and q_counter < limit:
@@ -146,11 +145,6 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
 
         u = x_adv.grad
 
-        if q_counter == 0:
-            with torch.no_grad():
-                init_grad_diff = u - true_first_gradient
-                print(f'Initial gradient difference (l-2 norm): {init_grad_diff.data.norm()}')
-
         # Calculate delta - L11
         with torch.no_grad():
             # Calculate g_plus and g_minus - L9-10
@@ -162,16 +156,28 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
             x_plus = x_adv + delta * g_plus
             x_minus = x_adv + delta * g_minus
 
+            victim.eval()
             query_minus = victim(x_minus)
-            query_plus = victim(x_plus)
 
-        q_counter += 2
+            victim.eval()
+            query_plus = victim(x_plus)
 
         delta_t = ((criterion(query_plus, y) -
                     criterion(query_minus, y)) / (tau * epsilon)) * u
 
         # Update gradient - L12
         g = g + eta_g * delta_t
+
+        # Compute the true gradient to check the difference
+        victim.zero_grad()
+        victim.eval()
+        predicted_y = victim(x_adv)
+        true_loss = criterion(predicted_y, y)
+        true_loss.backward()
+        true_gradient = x_adv.grad.clone()
+
+        gradient_difference = torch.dist(g, true_gradient, float('inf'))
+        gradient_differences.append(gradient_difference.item())
 
         # Update the adverserial example - L13-15
         with torch.no_grad():
@@ -184,6 +190,8 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
             label_minus = query_minus.max(1, keepdim=True)[1].item()
             label_plus = query_plus.max(1, keepdim=True)[1].item()
 
+        q_counter += 2
+
         if label_minus != true_label.item() or label_plus != true_label.item():
             print('Success! after {} queries'.format(q_counter))
             print("True: {}".format(true_label.item()))
@@ -192,6 +200,8 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
             if show_images:
                 imshow(x_adv[0].cpu())
             success = True
+
+    print(gradient_differences)
 
     return q_counter if success else -1
 
