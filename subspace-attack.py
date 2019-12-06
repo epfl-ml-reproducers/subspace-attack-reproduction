@@ -48,6 +48,32 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     print(f'Verbose: {verbose}')
     print(f'GPU in use: {torch.cuda.is_available()}')
 
+    experiment_info = {
+        'experiment_baseline': {
+            'victim_model': victim_model_name,
+            'reference_model_names': reference_model_names,
+            'dataset': dataset
+        },
+        'hyperparameters': {
+            'tau': tau,
+            'epsilon': epsilon,
+            'delta': delta,
+            'eta': eta,
+            'eta_g': eta_g
+        },
+        'settings': {
+            'n_images': n_images,
+            'image_limit': image_limit,
+            'compare_gradients': compare_gradients,
+            'verbose': verbose,
+            'gpu': torch.cuda.is_available()
+        },
+        'results': {
+
+        }
+
+    }
+
     # Load CIFAR10 dataset
     preprocess = transforms.Compose([
         transforms.ToTensor(),
@@ -79,6 +105,9 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     counter = 0
 
     queries = []
+    all_true_gradient_norms = []
+    all_estimated_gradient_norms = []
+    all_gradient_differences = []
 
     run_time = datetime.datetime.now().replace(microsecond=0)
     tic = time.time()
@@ -97,6 +126,9 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
         counter += 1
 
         queries.append(queries_counter)
+        all_gradient_differences.append(gradient_differences)
+        all_true_gradient_norms.append(true_gradient_norms)
+        all_estimated_gradient_norms.append(estimated_gradient_norms)
 
         if counter == n_images:
             break
@@ -114,19 +146,23 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     print(f'Total time: {total_time} s')
     print(f'\n-------------\n')
 
-    run_subfolder = run_time.strftime('%Y-%m-%d.%H-%M')
-
-    results_path = OUTPUT_DIR + '/' + run_subfolder + '/'
-
-    os.makedirs(results_path)
-
-    np.save(results_path + 'queries.npy', queries_array)
+    results_path = OUTPUT_DIR
+    experiment_info_filename = run_time.strftime('%Y-%m-%d.%H-%M')
     
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+
+    experiment_info['results']['queries'] = queries_array
+
     if compare_gradients:
-        np.save(results_path + 'gradient_differences.npy', gradient_differences)
-        np.save(results_path + 'true_gradient_norms.npy', true_gradient_norms)
-        np.save(results_path + 'estimated_gradient_norms.npy',
-                estimated_gradient_norms)
+        experiment_info['results']['gradient_differences'] = np.array(
+            all_gradient_differences)
+        experiment_info['results']['true_gradient_norms'] = np.array(
+            all_true_gradient_norms)
+        experiment_info['results']['estimated_gradient_norms'] = np.array(
+            all_estimated_gradient_norms)
+
+    np.save(results_path + experiment_info_filename, experiment_info, allow_pickle=True)
 
 
 def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
@@ -237,17 +273,18 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
             label_plus = query_plus.max(1, keepdim=True)[1].item()
 
         if label_minus != true_label.item() or label_plus != true_label.item():
-            print(f'\nSuccess! after {q_counter} queries')
+            print(f'\nSuccess! after {q_counter + 2} queries')
             print(f'True: {true_label.item()}')
             print(f'Label minus: {label_minus}')
             print(f'Label plus: {label_plus}')
 
             if show_images:
                 imshow(x_adv[0].cpu())
-            return q_counter, gradient_differences, true_gradient_norms, estimated_gradient_norms
+            
+            return q_counter + 2, np.array(gradient_differences), np.array(true_gradient_norms), np.array(estimated_gradient_norms)
 
+    return -1, np.array(gradient_differences), np.array(true_gradient_norms), np.array(estimated_gradient_norms)
 
-    return -1, gradient_differences, true_gradient_norms, estimated_gradient_norms
 
 def boolean_string(s):
     if s not in {'False', 'True'}:
