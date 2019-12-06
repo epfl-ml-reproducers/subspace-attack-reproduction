@@ -4,8 +4,10 @@ import argparse
 import os
 import datetime
 import time
-from torchvision import datasets, transforms
 import numpy as np
+
+from torchvision import datasets, transforms
+from tqdm import tqdm
 
 from src.import_models import load_model, MODELS_DATA, MODELS_DIRECTORY
 from src.plots import imshow
@@ -20,6 +22,7 @@ DEFAULT_VICTIM_MODEL = 'gdas'
 INF = float('inf')
 
 OUTPUT_DIR = 'outputs/'
+
 
 def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
          delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose):
@@ -43,6 +46,7 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     print(f'Limit of iterations per image: {image_limit}')
     print(f'Compare gradients: {compare_gradients}')
     print(f'Verbose: {verbose}')
+    print(f'GPU in use: {torch.cuda.is_available()}')
 
     # Load CIFAR10 dataset
     preprocess = transforms.Compose([
@@ -78,17 +82,17 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
 
     run_time = datetime.datetime.now().replace(microsecond=0)
     tic = time.time()
-    
+
     print(f'\n----- Beginning at {run_time} -----')
 
     for data, target in data_loader:
         print(f'\n--------------------------------------------\n')
-        print(f'Target image number {counter}')
+        print(f'Target number {counter}\n')
 
         queries_counter, gradient_differences, true_gradient_norms, estimated_gradient_norms = \
             attack(data, target, tau, epsilon, delta,
                    eta_g, eta, victim_model, reference_models,
-                   image_limit, verbose)
+                   image_limit, verbose, compare_gradients)
 
         counter += 1
 
@@ -113,17 +117,20 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     run_subfolder = run_time.strftime('%Y-%m-%d.%H-%M')
 
     results_path = OUTPUT_DIR + '/' + run_subfolder + '/'
-    
 
     os.makedirs(results_path)
 
     np.save(results_path + 'queries.npy', queries_array)
-    np.save(results_path + 'gradient_differences.npy', gradient_differences)
-    np.save(results_path + 'true_gradient_norms.npy', true_gradient_norms)
-    np.save(results_path + 'estimated_gradient_norms.npy', estimated_gradient_norms)
+    
+    if compare_gradients:
+        np.save(results_path + 'gradient_differences.npy', gradient_differences)
+        np.save(results_path + 'true_gradient_norms.npy', true_gradient_norms)
+        np.save(results_path + 'estimated_gradient_norms.npy',
+                estimated_gradient_norms)
 
 
-def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, references, limit, verbose, show_images=False):
+def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
+           eta, victim, references, limit, verbose, compare_gradients, show_images=False):
 
     # Regulators
     regmin = input_batch - epsilon
@@ -162,14 +169,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
     true_gradient_norms = []
     estimated_gradient_norms = []
 
-    success = False
-
-    while not success and q_counter < limit:
-
-        if q_counter % 50 == 0 and verbose:
-            # imshow(x_adv[0].cpu())
-            print(f'Iteration number: {str(q_counter // 2)}')
-            print(f'{str(q_counter)} queries have been made')
+    for q_counter in tqdm(range(0, limit, 2)):
 
         # Load random reference model
         random_model = random.randint(0, len(references) - 1)
@@ -211,18 +211,19 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
         g = g + eta_g * delta_t
 
         # Compute the true gradient to check the difference
-        victim.zero_grad()
-        victim.eval()
-        predicted_y = victim(x_adv)
-        true_loss = criterion(predicted_y, y)
-        true_loss.backward()
-        true_gradient = x_adv.grad.clone()
+        if compare_gradients:
+            victim.zero_grad()
+            victim.eval()
+            predicted_y = victim(x_adv)
+            true_loss = criterion(predicted_y, y)
+            true_loss.backward()
+            true_gradient = x_adv.grad.clone()
 
-        gradient_difference = torch.dist(
-            g, true_gradient, 2) / (true_gradient.norm(2) + g.norm(2)) * 2
-        gradient_differences.append(gradient_difference.item())
-        true_gradient_norms.append(true_gradient.norm(2).item())
-        estimated_gradient_norms.append(g.norm(2).item())
+            gradient_difference = torch.dist(
+                g, true_gradient, 2) / (true_gradient.norm(2) + g.norm(2)) * 2
+            gradient_differences.append(gradient_difference.item())
+            true_gradient_norms.append(true_gradient.norm(2).item())
+            estimated_gradient_norms.append(g.norm(2).item())
 
         # Update the adverserial example - L13-15
         with torch.no_grad():
@@ -235,18 +236,23 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g, eta, victim, ref
             label_minus = query_minus.max(1, keepdim=True)[1].item()
             label_plus = query_plus.max(1, keepdim=True)[1].item()
 
-        q_counter += 2
-
         if label_minus != true_label.item() or label_plus != true_label.item():
-            print('Success! after {} queries'.format(q_counter))
-            print("True: {}".format(true_label.item()))
-            print("Label minus: {}".format(label_minus))
-            print("Label plus: {}".format(label_plus))
+            print(f'\nSuccess! after {q_counter} queries')
+            print(f'True: {true_label.item()}')
+            print(f'Label minus: {label_minus}')
+            print(f'Label plus: {label_plus}')
+
             if show_images:
                 imshow(x_adv[0].cpu())
-            success = True
+            return q_counter, gradient_differences, true_gradient_norms, estimated_gradient_norms
 
-    return q_counter if success else -1, gradient_differences, true_gradient_norms, estimated_gradient_norms
+
+    return -1, gradient_differences, true_gradient_norms, estimated_gradient_norms
+
+def boolean_string(s):
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
 
 
 if __name__ == '__main__':
@@ -262,12 +268,12 @@ if __name__ == '__main__':
                         default=DEFAULT_VICTIM_MODEL, choices=VICTIM_MODELS)
 
     # Hyperparamters
-    parser.add_argument('--tau', help='Bandit exploration.',
+    parser.add_argument('--tau', help='Bandit exploration.',  # TODO: understand what tau really is
                         default=1, type=int)
-    parser.add_argument('--epsilon', help='The norm budget.',  # TODO: understand what tau really is
+    parser.add_argument('--epsilon', help='The norm budget.',
                         default=8/255, type=float)
     parser.add_argument(
-        '--delta', help='Finite difference probe', default=1, type=float)
+        '--delta', help='Finite difference probe', default=0.1, type=float)  # TODO: understand what delta really is
     parser.add_argument('--eta', help='Image learning rate.',
                         default=0.01, type=float)
     parser.add_argument('--eta_g', help='OCO learning rate.',
@@ -279,9 +285,9 @@ if __name__ == '__main__':
     parser.add_argument('--image-limit', help='Limit of iterations to be done for each image',
                         default=10000, type=int)
     parser.add_argument('--compare-gradients', help='Whether the program should output a comparison between the estimated and the true gradients.',
-                        default=True, type=bool)
+                        default=False, type=boolean_string)
     parser.add_argument(
-        '--verbose', help='Prints information every 50 image-iterations if true', default=True, type=bool)
+        '--verbose', help='Prints information every 50 image-iterations if true', default=True, type=boolean_string)
 
     args = parser.parse_args()
 
@@ -299,6 +305,8 @@ if __name__ == '__main__':
     image_limit = args.image_limit
     compare_gradients = args.compare_gradients
     verbose = args.verbose
+
+    print(compare_gradients)
 
     main(victim_model, reference_models, dataset, tau, epsilon,
          delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose)
