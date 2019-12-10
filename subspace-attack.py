@@ -95,19 +95,22 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     # Load victim model
     victim_model = load_model(
         MODELS_DIRECTORY, MODELS_DATA, victim_model_name, num_classes)
-    _ = victim_model.eval()
 
     if torch.cuda.is_available():
         reference_models = list(
             map(lambda model: model.to('cuda'), reference_models))
         victim_model = victim_model.to('cuda')
 
+    victim_model.eval()
+    for reference_model in reference_models:
+        reference_model.eval()
+
     counter = 0
 
     queries = []
     all_true_gradient_norms = []
     all_estimated_gradient_norms = []
-    all_gradient_differences = []
+    all_gradient_products = []
 
     run_time = datetime.datetime.now().replace(microsecond=0)
     tic = time.time()
@@ -118,7 +121,7 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
         print(f'\n--------------------------------------------\n')
         print(f'Target number {counter}\n')
 
-        queries_counter, gradient_differences, true_gradient_norms, estimated_gradient_norms = \
+        queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms = \
             attack(data, target, tau, epsilon, delta,
                    eta_g, eta, victim_model, reference_models,
                    image_limit, verbose, compare_gradients)
@@ -126,7 +129,7 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
         counter += 1
 
         queries.append(queries_counter)
-        all_gradient_differences.append(gradient_differences)
+        all_gradient_products.append(gradient_products)
         all_true_gradient_norms.append(true_gradient_norms)
         all_estimated_gradient_norms.append(estimated_gradient_norms)
 
@@ -155,8 +158,8 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
     experiment_info['results']['queries'] = queries_array
 
     if compare_gradients:
-        experiment_info['results']['gradient_differences'] = np.array(
-            all_gradient_differences)
+        experiment_info['results']['gradient_products'] = np.array(
+            all_gradient_products)
         experiment_info['results']['true_gradient_norms'] = np.array(
             all_true_gradient_norms)
         experiment_info['results']['estimated_gradient_norms'] = np.array(
@@ -201,7 +204,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
 
     # Create the array where we save the difference between
     # the true gradient and the estimated one
-    gradient_differences = []
+    gradient_products = []
     true_gradient_norms = []
     estimated_gradient_norms = []
 
@@ -210,7 +213,6 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
         # Load random reference model
         random_model = random.randint(0, len(references) - 1)
         reference_model = references[random_model]
-        reference_model.eval()
 
         # calculate the prior gradient - L8
         x_adv.requires_grad_(True)
@@ -234,10 +236,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
             x_plus = x_adv + delta * g_plus
             x_minus = x_adv + delta * g_minus
 
-            victim.eval()
             query_minus = victim(x_minus)
-
-            victim.eval()
             query_plus = victim(x_plus)
 
         delta_t = ((criterion(query_plus, y) -
@@ -248,18 +247,23 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
 
         # Compute the true gradient to check the difference
         if compare_gradients:
+            
             victim.zero_grad()
-            victim.eval()
             predicted_y = victim(x_adv)
             true_loss = criterion(predicted_y, y)
             true_loss.backward()
             true_gradient = x_adv.grad.clone()
+            
+            with torch.no_grad():
+                # Mesure the difference between the gradients
+                true_vector = true_gradient.reshape(-1)
+                est_vector = g.reshape(-1)
+                gradients_product = true_vector @ est_vector / (true_vector.norm() * est_vector.norm())
 
-            gradient_difference = torch.dist(
-                g, true_gradient, 2) / (true_gradient.norm(2) + g.norm(2)) * 2
-            gradient_differences.append(gradient_difference.item())
-            true_gradient_norms.append(true_gradient.norm(2).item())
-            estimated_gradient_norms.append(g.norm(2).item())
+                # Save everything to an array
+                gradient_products.append(gradients_product.item())
+                true_gradient_norms.append(true_gradient.norm(2).item())
+                estimated_gradient_norms.append(g.norm(2).item())
 
         # Update the adverserial example - L13-15
         with torch.no_grad():
@@ -281,9 +285,11 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
             if show_images:
                 imshow(x_adv[0].cpu())
             
-            return q_counter + 2, np.array(gradient_differences), np.array(true_gradient_norms), np.array(estimated_gradient_norms)
+            return q_counter + 2, np.array(gradient_products), np.array(true_gradient_norms), np.array(estimated_gradient_norms)
+    
+    print(f'\nFailed!')
 
-    return -1, np.array(gradient_differences), np.array(true_gradient_norms), np.array(estimated_gradient_norms)
+    return -1, np.array(gradient_products), np.array(true_gradient_norms), np.array(estimated_gradient_norms)
 
 
 def boolean_string(s):
@@ -306,7 +312,7 @@ if __name__ == '__main__':
 
     # Hyperparamters
     parser.add_argument('--tau', help='Bandit exploration.',  # TODO: understand what tau really is
-                        default=1, type=int)
+                        default=1, type=float)
     parser.add_argument('--epsilon', help='The norm budget.',
                         default=8/255, type=float)
     parser.add_argument(
