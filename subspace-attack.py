@@ -217,7 +217,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
         reference_model = references[random_model]
         
         # Applying the corresponsing dropout ratio
-        reference_model.drop_(min(p, MAX_P))
+        reference_model.drop = min(p, MAX_P)
 
         # calculate the prior gradient - L8
         x_adv.requires_grad_(True)
