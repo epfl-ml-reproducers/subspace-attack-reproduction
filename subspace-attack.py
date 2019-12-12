@@ -218,6 +218,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
         
         # Applying the corresponsing dropout ratio
         reference_model.drop = min(p, MAX_P)
+        reference_model.train()
 
         # calculate the prior gradient - L8
         x_adv.requires_grad_(True)
@@ -276,7 +277,7 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
                 estimated_gradient_norms.append(g.norm(2).item())
 
                 # Update dropout ratio according to the paper
-                p += 0.01
+        p += 0.01
 
         # Update the adverserial example - L13-15
         with torch.no_grad():
