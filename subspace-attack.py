@@ -187,6 +187,10 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
     # Initialize the gradient to be estimated
     g = torch.zeros_like(input_batch)
 
+    # Initialize the dropout ratio
+    p = 0.05
+    MAX_P = 0.5
+
     # move the input and model to GPU for speed if available
     if torch.cuda.is_available():
         x_adv = x_adv.to('cuda')
@@ -213,6 +217,9 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
         # Load random reference model
         random_model = random.randint(0, len(references) - 1)
         reference_model = references[random_model]
+        
+        # Applying the corresponsing dropout ratio
+        reference_model.drop_(min(p, MAX_P))
 
         # calculate the prior gradient - L8
         x_adv.requires_grad_(True)
