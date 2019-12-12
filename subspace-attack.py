@@ -102,8 +102,6 @@ def main(victim_model_name, reference_model_names, dataset, tau, epsilon,
         victim_model = victim_model.to('cuda')
 
     victim_model.eval()
-    for reference_model in reference_models:
-        reference_model.eval()
 
     counter = 0
 
@@ -239,11 +237,13 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
             query_minus = victim(x_minus)
             query_plus = victim(x_plus)
 
-        delta_t = ((criterion(query_plus, y) -
-                    criterion(query_minus, y)) / (tau * epsilon)) * u
+            delta_t = ((criterion(query_plus, y) -
+                        criterion(query_minus, y)) / (tau * epsilon)) * u
 
-        # Update gradient - L12
-        g = g + eta_g * delta_t
+                        
+
+            # Update gradient - L12
+            g = g + eta_g * delta_t
 
         # Compute the true gradient to check the difference
         if compare_gradients:
@@ -259,6 +259,9 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
                 true_vector = true_gradient.reshape(-1)
                 est_vector = g.reshape(-1)
                 gradients_product = true_vector @ est_vector / (true_vector.norm() * est_vector.norm())
+
+                if est_vector.norm() == 0:
+                    print('est_vector norm is 0!')
 
                 # Save everything to an array
                 gradient_products.append(gradients_product.item())
