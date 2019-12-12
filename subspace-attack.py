@@ -275,6 +275,9 @@ def attack(input_batch, true_label, tau, epsilon, delta, eta_g,
                 true_gradient_norms.append(true_gradient.norm(2).item())
                 estimated_gradient_norms.append(g.norm(2).item())
 
+                # Update dropout ratio according to the paper
+                p += 0.01
+
         # Update the adverserial example - L13-15
         with torch.no_grad():
             x_adv = x_adv + eta * torch.sign(g)
