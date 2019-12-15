@@ -95,7 +95,7 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
     y = true_label
 
     # Set CrossEntropy loss
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.NLLLoss()
 
     # Initialize the gradient to be estimated - L4
     g = torch.zeros_like(input_batch)
@@ -175,7 +175,6 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
             # Update esimated gradient - L12
             g += eta_g * delta_t
 
-        with torch.no_grad():
             # Update the adverserial example - L13
             x_adv += eta * torch.sign(g)
 
