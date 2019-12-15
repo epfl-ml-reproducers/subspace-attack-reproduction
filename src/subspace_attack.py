@@ -14,7 +14,7 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
            show_images: bool) -> Tuple[int, np.array, np.array, np.array]:
     """
     Runs the subspace attack on one image given as input.
-    
+
     The name of the hyperparameters are the same used in [1]. The equivalents in [2]
     are also explaned for each parameter.
 
@@ -31,7 +31,7 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
 
     tau: float
         The Bandit exploration ($\delta$ in [2]).
-        
+
     delta: float
         Finite difference probe (The lower $\eta$ in [2]).
 
@@ -65,13 +65,13 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
 
     gradient_products: np.array
         The cosine similarities between real and estimated gradients (empty if compare_gradients == False).
-    
+
     true_gradient_norms: np.array
         The norms of the true gradients (empty if compare_gradients == False).
-    
+
     estimated_gradient_norms: np.array
         The norms of the estimated gradients (empty if compare_gradients == False).
-    
+
     final_model: str
         The last reference model used.
 
@@ -135,13 +135,11 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
         # maximum has been reached
         reference_model.drop = min(p, MAX_P)
 
-        # Set mode to training to use dropout
-        reference_model.train()
-
         # Calculate the prior gradient - L8
         # --- Compute f(x_adv) using a the reference model as f
         x_adv.requires_grad_(True)
         reference_model.zero_grad()
+        victim.zero_grad()
         output = reference_model(x_adv)
 
         # --- Compute the loss function and get the gradient of the
@@ -150,6 +148,7 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
         loss.backward()
         u = x_adv.grad
 
+        # No gradient required for the following operations
         with torch.no_grad():
             # Calculate g_plus and g_minus - L9
             g_plus = g + tau * u
@@ -191,19 +190,22 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
         # Compute the true gradient to check the difference (not in the original algorithm)
         if compare_gradients:
             # Compute f(x_adv)
-            x_adv.requires_grad_(True)
             victim.zero_grad()
-            predicted_y = victim(x_adv)
+            reference_model.zero_grad()
+
+            x_test = x_adv.clone()
+            x_test.requires_grad_(True)
+            predicted_y = victim(x_test)
             true_loss = criterion(predicted_y, y)
             true_loss.backward()
-            true_gradient = x_adv.grad.clone()
+            true_gradient = x_test.grad.clone()
 
             with torch.no_grad():
                 # Mesure the cosine similarity between the gradients
                 true_vector = true_gradient.reshape(-1)
                 est_vector = g.reshape(-1)
-                gradients_product = true_vector @ est_vector / \
-                    (true_vector.norm() * est_vector.norm())
+                gradients_product = (true_vector @ est_vector /
+                                     (true_vector.norm() * est_vector.norm()))
 
                 if est_vector.norm() == 0:
                     print('est_vector norm is 0!')

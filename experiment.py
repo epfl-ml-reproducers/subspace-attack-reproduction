@@ -210,10 +210,6 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         print(f'\n--------------------------------------------\n')
         print(f'Target number {counter}\n')
 
-        if counter != 32:
-            counter += 1
-            continue
-
         # Attack the image
         queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, final_model = \
             attack(data, target, tau, epsilon, delta,
