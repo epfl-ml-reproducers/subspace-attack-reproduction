@@ -8,25 +8,21 @@ import numpy as np
 
 from torchvision import datasets, transforms
 from tqdm import tqdm
+from typing import List
 
-from src.import_models import load_model, MODELS_DATA, MODELS_DIRECTORY
-from src.subspace_attack import attack
+from src.load_model import load_model, MODELS_DATA, ModelType
+from src.load_data import load_data, DATASETS_DATA
 from src.plots import imshow
+from src.subspace_attack import attack
 
-DATASETS = ['CIFAR-10']
-REFERENCE_MODELS = ['vgg11_bn', 'vgg13_bn',
-                    'vgg16_bn', 'vgg19_bn', 'AlexNet_bn']
-DEFAULT_REFERENCE_MODELS = ['vgg11_bn', 'vgg13_bn',
-                            'vgg16_bn', 'vgg19_bn', 'AlexNet_bn']
-VICTIM_MODELS = ['gdas']
-DEFAULT_VICTIM_MODEL = 'gdas'
 INF = float('inf')
 
 OUTPUT_DIR = 'outputs/'
 
 
-def run_experiment(victim_model_name, reference_model_names, dataset, tau, epsilon,
-         delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose):
+def run_experiment(victim_model_name: str, reference_model_names: List[str], dataset: str,
+                   tau: float, epsilon: float, delta: float, eta: float, eta_g: float,
+                   n_images: int, image_limit: int, compare_gradients: bool, verbose: bool) -> None:
 
     print('----- Running experiment with the following settings -----')
 
@@ -75,27 +71,16 @@ def run_experiment(victim_model_name, reference_model_names, dataset, tau, epsil
 
     }
 
-    # Load CIFAR10 dataset
-    preprocess = transforms.Compose([
-        transforms.ToTensor(),
-    ])
-
-    data = datasets.CIFAR10(root='./data', train=True,
-                            download=True, transform=preprocess)
-    data_loader = torch.utils.data.DataLoader(
-        data, batch_size=1, shuffle=True, num_workers=2)
-
-    classes = ('plane', 'car', 'bird', 'cat',
-               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    data_loader, classes = load_data(dataset)
 
     num_classes = len(classes)
+
     # Load reference models
     reference_models = list(map(lambda name: load_model(
-        MODELS_DIRECTORY, MODELS_DATA, name, num_classes), reference_model_names))
+        name, num_classes), reference_model_names))
 
     # Load victim model
-    victim_model = load_model(
-        MODELS_DIRECTORY, MODELS_DATA, victim_model_name, num_classes)
+    victim_model = load_model(victim_model_name, num_classes)
 
     if torch.cuda.is_available():
         reference_models = list(
@@ -168,7 +153,7 @@ def run_experiment(victim_model_name, reference_model_names, dataset, tau, epsil
             experiment_info, allow_pickle=True)
 
 
-def boolean_string(s):
+def boolean_string(s: str) -> bool:
     if s not in {'False', 'True'}:
         raise ValueError('Not a valid boolean string')
     return s == 'True'
@@ -176,15 +161,31 @@ def boolean_string(s):
 
 if __name__ == '__main__':
 
+    # Get the possible reference models
+    reference_models = [
+        model for model in MODELS_DATA if MODELS_DATA[model]['type'] == ModelType.REFERENCE]
+
+    # Get the possible victim models
+    victim_models = [
+        model for model in MODELS_DATA if MODELS_DATA[model]['type'] == ModelType.VICTIM]
+
+    # Get default reference models
+    default_reference_models = [
+        model for model in reference_models if MODELS_DATA[model]['default'] == True]
+
+    # Get default victim model (it is just 1, thus we take the first element)
+    default_victim_model = [
+        model for model in victim_models if MODELS_DATA[model]['default'] == True][0]
+
     parser = argparse.ArgumentParser()
 
     # Dataset and models to be used
     parser.add_argument('-ds', '--dataset', help='The dataset to be used.',
-                        default='CIFAR-10', choices=DATASETS)
+                        default='CIFAR-10', choices=list(DATASETS_DATA.keys()))
     parser.add_argument('--reference-models', help='The reference models to be used.',
-                        nargs='+', default=REFERENCE_MODELS, choices=REFERENCE_MODELS)
+                        nargs='+', default=default_reference_models, choices=reference_models)
     parser.add_argument('--victim-model', help='The model to be attacked.',
-                        default=DEFAULT_VICTIM_MODEL, choices=VICTIM_MODELS)
+                        default=default_victim_model, choices=victim_models)
 
     # Hyperparamters
     parser.add_argument('--tau', help='Bandit exploration.',  # TODO: understand what tau really is
@@ -225,7 +226,5 @@ if __name__ == '__main__':
     compare_gradients = args.compare_gradients
     verbose = args.verbose
 
-    print(compare_gradients)
-
     run_experiment(victim_model, reference_models, dataset, tau, epsilon,
-         delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose)
+                   delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose)
