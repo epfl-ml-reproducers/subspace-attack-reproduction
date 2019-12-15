@@ -21,7 +21,7 @@ DATASETS_DATA = {
 }
 
 
-def load_data(dataset: str) -> Tuple[torch.utils.data.DataLoader, Tuple[str]]:
+def load_data(dataset: str, shuffle: bool) -> Tuple[torch.utils.data.DataLoader, Tuple[str]]:
     """
     Loads a a dataset from `torchvision.datasets`. It loads the dataset, it transforms each entry
     to a torch.Tensor, and finally returns a PyTorch dataloader. The dataset is returned as a
@@ -34,6 +34,9 @@ def load_data(dataset: str) -> Tuple[torch.utils.data.DataLoader, Tuple[str]]:
     ------
     dataset: str
         The name of the dataset to be loaded.
+
+    shuffle: bool
+        Whether inputs should be randomized.
 
     Returns
     -------
@@ -60,6 +63,6 @@ def load_data(dataset: str) -> Tuple[torch.utils.data.DataLoader, Tuple[str]]:
 
     # Put the dataset in a DataLoader and return it with the classes
     data_loader = torch.utils.data.DataLoader(
-        data, batch_size=1, shuffle=True, num_workers=2)
+        data, batch_size=1, shuffle=shuffle, num_workers=2)
 
     return data_loader, dataset_info['classes']

@@ -10,6 +10,7 @@ from torchvision import datasets, transforms
 from tqdm import tqdm
 from typing import List
 
+from src.helpers import boolean_string
 from src.load_model import load_model, MODELS_DATA, ModelType
 from src.load_data import load_data, DATASETS_DATA
 from src.plots import imshow
@@ -21,30 +22,13 @@ OUTPUT_DIR = 'outputs/'
 
 
 def run_experiment(victim_model_name: str, reference_model_names: List[str], dataset: str,
-                   tau: float, epsilon: float, delta: float, eta: float, eta_g: float,
-                   n_images: int, image_limit: int, compare_gradients: bool, verbose: bool) -> None:
-
-    print('----- Running experiment with the following settings -----')
-
-    print('\n----- Models information -----')
-    print(f'Victim model: {victim_model_name}')
-    print(f'Reference models names: {reference_model_names}')
-    print(f'Dataset: {dataset}')
-
-    print(f'\n------ Hyperparameters -----')
-    print(f'tau: {tau}')
-    print(f'epsilon: {epsilon}')
-    print(f'delta: {delta}')
-    print(f'eta: {eta}')
-    print(f'eta_g: {eta_g}')
-
-    print('\n----- General settings -----')
-    print(f'Number of images: {n_images}')
-    print(f'Limit of iterations per image: {image_limit}')
-    print(f'Compare gradients: {compare_gradients}')
-    print(f'Verbose: {verbose}')
-    print(f'GPU in use: {torch.cuda.is_available()}')
-
+                   epsilon: float, tau: float, delta: float, eta: float, eta_g: float,
+                   n_images: int, image_limit: int, compare_gradients: bool, show_images: bool) -> None:
+    """
+    Runs an experiment of the subspace attack on a batch of images. It outputs the results in the
+    `outputs/` folder, in a file named `YYYY-MM-DD.HH-MM.npy` The output file is a dictionary
+    exported with `numpy.save`. The formato of the dictionary is:
+    ```python
     experiment_info = {
         'experiment_baseline': {
             'victim_model': victim_model_name,
@@ -62,7 +46,109 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             'n_images': n_images,
             'image_limit': image_limit,
             'compare_gradients': compare_gradients,
-            'verbose': verbose,
+            'gpu': # If the GPU has been used for the experiment
+        },
+        'results': {
+            'queries': # The number of queries run
+            'total_time' # The time it took to run the experiment
+            # The following are present only if compare_gradients == True
+            'gradient_products': # The cosine similarities for each image
+            'true_gradient_norms': # The norms of the true gradients for each image
+            'estimated_gradient_norms': # The norms of the estimated gradients for each image
+    }
+    ```
+
+    The name of the hyperparameters are the same used in [1]. The equivalents in [2] are also
+    explaned for each parameter.
+
+    Parameters
+    ----------
+    victim_model_name: str
+        The name of the model to be attacked.
+
+    reference_model_names: int
+        The list of names of the models to be used as references.
+
+    dataset: str
+        The dataset from which the examples should be generated.
+
+    epsilon: float
+        The maximum perturbation allowed $\ell\infty$ norm. In [2] it has the same name.
+
+    tau: float
+        The Bandit exploration ($\delta$ in [2]).
+
+    delta: float
+        Finite difference probe (The lower $\eta$ in [2]).
+
+    eta_g: float
+        OCO learning rate (The upper $\eta$ in [2]).
+
+    eta: float
+        Image learning rate (h in [2]).
+
+    n_images: int
+        The number of images on which the attack should be run.
+
+    limit: int
+        The maximum number of queries to be attempted.
+
+    compare_gradients: bool
+        Whether the real and the estimated gradients should be estimated after each loop.
+        **Warning**: the use of this feature slows down the attack. It should be used just to
+        check experimetally the behavior of the gradients.
+
+    show_images: bool
+        Whether each image to be attacked, and its corresponding adversarial examples should be shown.
+
+    References
+    ----------
+    [1] Guo, Yiwen, Ziang Yan, and Changshui Zhang. "Subspace Attack: Exploiting Promising Subspaces
+        for Query-Efficient Black-box Attacks." Advances in Neural Information Processing Systems 2019.
+
+    [2] Ilyas, Andrew, Logan Engstrom, and Aleksander Madry. "Prior convictions: Black-box adversarial
+        attacks with bandits and priors." arXiv preprint arXiv:1807.07978 (2018).
+    """
+
+    # Print introductory message
+    print('----- Running experiment with the following settings -----')
+    print('\n----- Models information -----')
+    print(f'Victim model: {victim_model_name}')
+    print(f'Reference models names: {reference_model_names}')
+    print(f'Dataset: {dataset}')
+
+    print(f'\n------ Hyperparameters -----')
+    print(f'tau: {tau}')
+    print(f'epsilon: {epsilon}')
+    print(f'delta: {delta}')
+    print(f'eta: {eta}')
+    print(f'eta_g: {eta_g}')
+
+    print('\n----- General settings -----')
+    print(f'Number of images: {n_images}')
+    print(f'Limit of iterations per image: {image_limit}')
+    print(f'Compare gradients: {compare_gradients}')
+    print(f'Show images: {show_images}')
+    print(f'GPU in use: {torch.cuda.is_available()}')
+
+    # Save experiment initial information
+    experiment_info = {
+        'experiment_baseline': {
+            'victim_model': victim_model_name,
+            'reference_model_names': reference_model_names,
+            'dataset': dataset
+        },
+        'hyperparameters': {
+            'tau': tau,
+            'epsilon': epsilon,
+            'delta': delta,
+            'eta': eta,
+            'eta_g': eta_g
+        },
+        'settings': {
+            'n_images': n_images,
+            'image_limit': image_limit,
+            'compare_gradients': compare_gradients,
             'gpu': torch.cuda.is_available()
         },
         'results': {
@@ -71,8 +157,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
 
     }
 
-    data_loader, classes = load_data(dataset)
-
+    # Load data using required dataset
+    data_loader, classes = load_data(dataset, False)
     num_classes = len(classes)
 
     # Load reference models
@@ -82,46 +168,59 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     # Load victim model
     victim_model = load_model(victim_model_name, num_classes)
 
+    # Move models to CUDA, if available
     if torch.cuda.is_available():
         reference_models = list(
             map(lambda model: model.to('cuda'), reference_models))
         victim_model = victim_model.to('cuda')
 
+    # Set victim model to `eval()` mode to avoid dropout and batch normalization
     victim_model.eval()
 
+    # Initialize images counter
     counter = 0
 
+    # Initalize the arrays to save results
     queries = []
+    final_models = []
     all_true_gradient_norms = []
     all_estimated_gradient_norms = []
     all_gradient_products = []
 
+    # Initialize timing information
     run_time = datetime.datetime.now().replace(microsecond=0)
     tic = time.time()
 
     print(f'\n----- Beginning at {run_time} -----')
 
+    # Loop over the dataset
     for data, target in data_loader:
         print(f'\n--------------------------------------------\n')
         print(f'Target number {counter}\n')
 
-        queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms = \
+        # Attack the image
+        queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, final_model = \
             attack(data, target, tau, epsilon, delta,
                    eta_g, eta, victim_model, reference_models,
-                   image_limit, verbose, compare_gradients)
+                   image_limit, compare_gradients, show_images)
 
         counter += 1
 
+        # Save the results of the attack
         queries.append(queries_counter)
+        final_models.append(final_model)
         all_gradient_products.append(gradient_products)
         all_true_gradient_norms.append(true_gradient_norms)
         all_estimated_gradient_norms.append(estimated_gradient_norms)
 
+        # Stop if all the required images have been attacked
         if counter == n_images:
             break
 
+    # Save the total time
     total_time = time.time() - tic
 
+    # Make an np.array aout of the queries array to print some stats
     queries_array = np.array(queries)
     failed = queries_array == -1
 
@@ -133,14 +232,12 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     print(f'Total time: {total_time} s')
     print(f'\n-------------\n')
 
-    results_path = OUTPUT_DIR
-    experiment_info_filename = run_time.strftime('%Y-%m-%d.%H-%M')
-
-    if not os.path.exists(results_path):
-        os.makedirs(results_path)
-
+    # Save experiment run information
     experiment_info['results']['queries'] = queries_array
+    experiment_info['results']['total_time'] = total_time
+    experiment_info['results']['final_model'] = final_models
 
+    # Save gradients information, if required by experiment run
     if compare_gradients:
         experiment_info['results']['gradient_products'] = np.array(
             all_gradient_products)
@@ -149,14 +246,15 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         experiment_info['results']['estimated_gradient_norms'] = np.array(
             all_estimated_gradient_norms)
 
+    # Take care of results output folder
+    results_path = OUTPUT_DIR
+    experiment_info_filename = run_time.strftime('%Y-%m-%d.%H-%M')
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+
+    # Save results
     np.save(results_path + experiment_info_filename,
             experiment_info, allow_pickle=True)
-
-
-def boolean_string(s: str) -> bool:
-    if s not in {'False', 'True'}:
-        raise ValueError('Not a valid boolean string')
-    return s == 'True'
 
 
 if __name__ == '__main__':
@@ -188,12 +286,12 @@ if __name__ == '__main__':
                         default=default_victim_model, choices=victim_models)
 
     # Hyperparamters
-    parser.add_argument('--tau', help='Bandit exploration.',  # TODO: understand what tau really is
+    parser.add_argument('--tau', help='Bandit exploration.',
                         default=1, type=float)
     parser.add_argument('--epsilon', help='The norm budget.',
                         default=8/255, type=float)
-    parser.add_argument(
-        '--delta', help='Finite difference probe', default=0.1, type=float)  # TODO: understand what delta really is
+    parser.add_argument('--delta', help='Finite difference probe',
+                        default=0.1, type=float)
     parser.add_argument('--eta', help='Image learning rate.',
                         default=1/255, type=float)
     parser.add_argument('--eta_g', help='OCO learning rate.',
@@ -206,9 +304,8 @@ if __name__ == '__main__':
                         default=10000, type=int)
     parser.add_argument('--compare-gradients', help='Whether the program should output a comparison between the estimated and the true gradients.',
                         default=False, type=boolean_string)
-    parser.add_argument(
-        '--verbose', help='Prints information every 50 image-iterations if true', default=True, type=boolean_string)
-
+    parser.add_argument('--show-images', help='Whether each image to be attacked, and its corresponding adversarial examples should be shown',
+                        default=False, type=boolean_string)
     args = parser.parse_args()
 
     victim_model = args.victim_model
@@ -224,7 +321,7 @@ if __name__ == '__main__':
     n_images = args.n_images
     image_limit = args.image_limit
     compare_gradients = args.compare_gradients
-    verbose = args.verbose
+    show_images = args.show_images
 
     run_experiment(victim_model, reference_models, dataset, tau, epsilon,
-                   delta, eta, eta_g, n_images, image_limit, compare_gradients, verbose)
+                   delta, eta, eta_g, n_images, image_limit, compare_gradients, show_images)
