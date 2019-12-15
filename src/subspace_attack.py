@@ -192,6 +192,7 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
         # Compute the true gradient to check the difference (not in the original algorithm)
         if compare_gradients:
             # Compute f(x_adv)
+            x_adv.requires_grad_(True)
             victim.zero_grad()
             predicted_y = victim(x_adv)
             true_loss = criterion(predicted_y, y)
@@ -218,18 +219,18 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
             label_minus = query_minus.max(1, keepdim=True)[1].item()
             label_plus = query_plus.max(1, keepdim=True)[1].item()
 
-        # If it is successful, print information about the attack, and return
-        if label_minus != true_label.item() or label_plus != true_label.item():
-            print(f'\nSuccess! After {q_counter + 2} queries')
-            print(f'True: {true_label.item()}')
-            print(f'Label minus: {label_minus}')
-            print(f'Label plus: {label_plus}')
-            print(f'Final model: {reference_model.__class__.__name__}')
+            # If it is successful, print information about the attack, and return
+            if label_minus != true_label.item() or label_plus != true_label.item():
+                print(f'\nSuccess! After {q_counter + 2} queries')
+                print(f'True: {true_label.item()}')
+                print(f'Label minus: {label_minus}')
+                print(f'Label plus: {label_plus}')
+                print(f'Final model: {reference_model.__class__.__name__}')
 
-            if show_images:
-                imshow(x_adv[0].cpu())
+                if show_images:
+                    imshow(x_adv[0].cpu())
 
-            return q_counter + 2, np.array(gradient_products), np.array(true_gradient_norms), np.array(estimated_gradient_norms), reference_model.__class__.__name__
+                return q_counter + 2, np.array(gradient_products), np.array(true_gradient_norms), np.array(estimated_gradient_norms), reference_model.__class__.__name__
 
     print(f'\nFailed! After {q_counter + 2} queries')
 

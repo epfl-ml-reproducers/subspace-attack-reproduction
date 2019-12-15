@@ -23,11 +23,13 @@ OUTPUT_DIR = 'outputs/'
 
 def run_experiment(victim_model_name: str, reference_model_names: List[str], dataset: str,
                    epsilon: float, tau: float, delta: float, eta: float, eta_g: float,
-                   n_images: int, image_limit: int, compare_gradients: bool, show_images: bool) -> None:
+                   n_images: int, image_limit: int, compare_gradients: bool, show_images: bool,
+                   seed: int = 0) -> None:
     """
     Runs an experiment of the subspace attack on a batch of images. It outputs the results in the
     `outputs/` folder, in a file named `YYYY-MM-DD.HH-MM.npy` The output file is a dictionary
-    exported with `numpy.save`. The formato of the dictionary is:
+    exported with `numpy.save`. The format of the dictionary is:
+
     ```python
     experiment_info = {
         'experiment_baseline': {
@@ -46,7 +48,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             'n_images': n_images,
             'image_limit': image_limit,
             'compare_gradients': compare_gradients,
-            'gpu': # If the GPU has been used for the experiment
+            'gpu': # If the GPU has been used for the experiment,
+            'seed': seed
         },
         'results': {
             'queries': # The number of queries run
@@ -101,6 +104,10 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     show_images: bool
         Whether each image to be attacked, and its corresponding adversarial examples should be shown.
 
+    seed: int
+        The seed to be used to initialize pseudo-random generators. To be used for reproducibility
+        purposes.
+
     References
     ----------
     [1] Guo, Yiwen, Ziang Yan, and Changshui Zhang. "Subspace Attack: Exploiting Promising Subspaces
@@ -109,6 +116,9 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     [2] Ilyas, Andrew, Logan Engstrom, and Aleksander Madry. "Prior convictions: Black-box adversarial
         attacks with bandits and priors." arXiv preprint arXiv:1807.07978 (2018).
     """
+    # Fix the seeds for reproducibility purposes
+    torch.manual_seed(seed)
+    random.seed(seed)
 
     # Print introductory message
     print('----- Running experiment with the following settings -----')
@@ -129,6 +139,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     print(f'Limit of iterations per image: {image_limit}')
     print(f'Compare gradients: {compare_gradients}')
     print(f'Show images: {show_images}')
+    print(f'Seed: {seed}')
     print(f'GPU in use: {torch.cuda.is_available()}')
 
     # Save experiment initial information
@@ -149,16 +160,17 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             'n_images': n_images,
             'image_limit': image_limit,
             'compare_gradients': compare_gradients,
-            'gpu': torch.cuda.is_available()
+            'gpu': torch.cuda.is_available(),
+            'seed': seed
         },
         'results': {
-
+            # Initialize dict entry to save results later.
         }
 
     }
 
     # Load data using required dataset
-    data_loader, classes = load_data(dataset, False)
+    data_loader, classes = load_data(dataset, True)
     num_classes = len(classes)
 
     # Load reference models
@@ -306,6 +318,8 @@ if __name__ == '__main__':
                         default=False, type=boolean_string)
     parser.add_argument('--show-images', help='Whether each image to be attacked, and its corresponding adversarial examples should be shown',
                         default=False, type=boolean_string)
+    parser.add_argument('--seed', help='The random seed with which the experiment should be run, to be used for reproducibility purposes.',
+                        default=0, type=int)
     args = parser.parse_args()
 
     victim_model = args.victim_model
@@ -322,6 +336,7 @@ if __name__ == '__main__':
     image_limit = args.image_limit
     compare_gradients = args.compare_gradients
     show_images = args.show_images
+    seed = args.seed
 
     run_experiment(victim_model, reference_models, dataset, tau, epsilon,
-                   delta, eta, eta_g, n_images, image_limit, compare_gradients, show_images)
+                   delta, eta, eta_g, n_images, image_limit, compare_gradients, show_images, seed)
