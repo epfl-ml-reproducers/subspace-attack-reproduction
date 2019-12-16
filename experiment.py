@@ -11,7 +11,7 @@ from tqdm import tqdm
 from typing import List
 
 from src.helpers import boolean_string
-from src.load_model import load_model, MODELS_DATA, ModelType
+from src.load_model import load_model, MODELS, ModelType
 from src.load_data import Dataset, DEFAULT_DATASET, load_data
 from src.load_loss import ExperimentLoss, DEFAULT_LOSS, load_loss
 from src.plots import imshow
@@ -282,31 +282,31 @@ if __name__ == '__main__':
 
     # Get the possible reference models
     reference_models = [
-        model for model in MODELS_DATA if MODELS_DATA[model]['type'] == ModelType.REFERENCE]
+        model for model in MODELS if MODELS[model]['type'] == ModelType.REFERENCE]
 
     # Get the possible victim models
     victim_models = [
-        model for model in MODELS_DATA if MODELS_DATA[model]['type'] == ModelType.VICTIM]
+        model for model in MODELS if MODELS[model]['type'] == ModelType.VICTIM]
 
     # Get default reference models
     default_reference_models = [
-        model for model in reference_models if MODELS_DATA[model]['default'] == True]
+        model for model in reference_models if MODELS[model]['default'] == True]
 
     # Get default victim model (it is just 1, thus we take the first element)
     default_victim_model = [
-        model for model in victim_models if MODELS_DATA[model]['default'] == True][0]
+        model for model in victim_models if MODELS[model]['default'] == True][0]
 
     parser = argparse.ArgumentParser()
 
     # Dataset, models and loss to be used
     parser.add_argument('-ds', '--dataset', help='The dataset to be used.',
-                        default=DEFAULT_DATASET, choices=[d.value for d in Dataset])
+                        default=DEFAULT_DATASET, choices=Dataset)
     parser.add_argument('--reference-models', help='The reference models to be used.',
                         nargs='+', default=default_reference_models, choices=reference_models)
     parser.add_argument('--victim-model', help='The model to be attacked.',
                         default=default_victim_model, choices=victim_models)
     parser.add_argument('--loss', help='The loss function to be used', default=DEFAULT_LOSS,
-                        choices=[l.value for l in ExperimentLoss], type=ExperimentLoss)
+                        choices=ExperimentLoss, type=ExperimentLoss)
 
     # Hyperparamters
     parser.add_argument('--tau', help='Bandit exploration.',
