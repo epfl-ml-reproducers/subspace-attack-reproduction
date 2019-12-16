@@ -7,12 +7,14 @@ from src.models.cifar.gdas import load_gdas
 from src.models.cifar import vgg
 from src.models.cifar import alexnet
 
+
 class ModelType(Enum):
     """
     Enum that saves whether a model is VICTIM or REFERENCE
     """
     VICTIM = 'victim'
     REFERENCE = 'reference'
+
 
 # Name of the directory that contains the pretrained models
 MODELS_DIRECTORY = 'pretrained/'
@@ -27,7 +29,7 @@ model_name: {
     default: whether is a model to be used by default in the experiment
 }
 """
-MODELS_DATA = {
+MODELS = {
     'gdas': {
         'folder': 'gdas/',
         'checkpoint': 'gdas-cifar10.pth',
@@ -76,14 +78,14 @@ MODELS_DATA = {
 def load_model(name: str, num_classes: int) -> torch.nn.Module:
     """
     Loads a pretrained model from storage. Pretrained models must be stored in `/pretrained` folder, and
-    must be in the `MODELS_DATA` dict. The pretrained models we are using for the experiment can be
+    must be in the `MODELS` dict. The pretrained models we are using for the experiment can be
     downloaded [here](https://drive.google.com/file/d/1TA-UWYVDkCkNPOy1INjUU9321s-HA6RF/view).
 
     Parameters
     ------
     name: str
         The name of the model to be loaded.
-    
+
     num_classes: int
         The number of classes the model must be loaded with.
 
@@ -91,7 +93,7 @@ def load_model(name: str, num_classes: int) -> torch.nn.Module:
     -------
     model: torch.nn.Module
         The pretrained model, ready to be used.
-    
+
     Raises
     ------
     NotImplementedError
@@ -99,18 +101,18 @@ def load_model(name: str, num_classes: int) -> torch.nn.Module:
     """
 
     # Check if the model name is valid
-    if name not in MODELS_DATA:
+    if name not in MODELS:
         raise NotImplementedError(
-            f'{name} is not a valid name, must be one of {list(MODELS_DATA.keys())}'
+            f'{name} is not a valid name, must be one of {list(MODELS.keys())}'
         )
-    
+
     # Get the data about the model
-    model_data = MODELS_DATA[name]
+    model_data = MODELS[name]
 
     # If the model is GDAS, treat it differently
     if name == 'gdas':
         # Get GDAS data
-        gdas_data = MODELS_DATA['gdas']
+        gdas_data = MODELS['gdas']
 
         # Load GDAS using config and data
         gdas = load_gdas(

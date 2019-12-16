@@ -8,8 +8,8 @@ from typing import List, Tuple
 from src.plots import imshow
 
 
-def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: float,
-           delta: float, eta_g: float, eta: float, victim: torch.nn.Module,
+def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, true_label: int,
+           epsilon: float, tau: float, delta: float, eta_g: float, eta: float, victim: torch.nn.Module,
            references: List[torch.nn.Module], limit: int, compare_gradients: bool,
            show_images: bool) -> Tuple[int, np.array, np.array, np.array]:
     """
@@ -22,6 +22,9 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
     ----------
     input_batch: torch.Tensor
         The image to be attacked, it is a tensor, as it should come from a DataLoader.
+
+    criterion: torch.nn.modules.loss._Loss
+        The loss function to be used for the attack.
 
     true_label: int
         The true label assigned to the input
@@ -93,9 +96,6 @@ def attack(input_batch: torch.Tensor, true_label: int, epsilon: float, tau: floa
 
     # Set the label to be used (the predicted one vs the true one)
     y = true_label
-
-    # Set CrossEntropy loss
-    criterion = torch.nn.NLLLoss()
 
     # Initialize the gradient to be estimated - L4
     g = torch.zeros_like(input_batch)

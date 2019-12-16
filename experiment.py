@@ -12,7 +12,8 @@ from typing import List
 
 from src.helpers import boolean_string
 from src.load_model import load_model, MODELS_DATA, ModelType
-from src.load_data import load_data, DATASETS_DATA
+from src.load_data import Dataset, DEFAULT_DATASET, load_data
+from src.load_loss import ExperimentLoss, DEFAULT_LOSS, load_loss
 from src.plots import imshow
 from src.subspace_attack import attack
 
@@ -22,7 +23,7 @@ OUTPUT_DIR = 'outputs/'
 
 
 def run_experiment(victim_model_name: str, reference_model_names: List[str], dataset: str,
-                   epsilon: float, tau: float, delta: float, eta: float, eta_g: float,
+                   loss: str, epsilon: float, tau: float, delta: float, eta: float, eta_g: float,
                    n_images: int, image_limit: int, compare_gradients: bool, show_images: bool,
                    seed: int = 0) -> None:
     """
@@ -75,6 +76,9 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     dataset: str
         The dataset from which the examples should be generated.
 
+    loss: str
+        The name of the loss function to be used.
+
     epsilon: float
         The maximum perturbation allowed $\ell\infty$ norm. In [2] it has the same name.
 
@@ -125,7 +129,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     print('\n----- Models information -----')
     print(f'Victim model: {victim_model_name}')
     print(f'Reference models names: {reference_model_names}')
-    print(f'Dataset: {dataset}')
+    print(f'Dataset: {dataset.value}')
+    print(f'Loss function: {loss.value}')
 
     print(f'\n------ Hyperparameters -----')
     print(f'tau: {tau}')
@@ -147,7 +152,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         'experiment_baseline': {
             'victim_model': victim_model_name,
             'reference_model_names': reference_model_names,
-            'dataset': dataset
+            'dataset': dataset.value,
+            'loss': loss.value
         },
         'hyperparameters': {
             'tau': tau,
@@ -186,6 +192,9 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             map(lambda model: model.to('cuda'), reference_models))
         victim_model = victim_model.to('cuda')
 
+    # Get loss function
+    criterion = load_loss(loss)
+
     # Set victim model to `eval()` mode to avoid dropout and batch normalization
     victim_model.eval()
 
@@ -212,7 +221,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
 
         # Attack the image
         queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, final_model = \
-            attack(data, target, tau, epsilon, delta,
+            attack(data, criterion, target, tau, epsilon, delta,
                    eta_g, eta, victim_model, reference_models,
                    image_limit, compare_gradients, show_images)
 
@@ -289,13 +298,15 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    # Dataset and models to be used
+    # Dataset, models and loss to be used
     parser.add_argument('-ds', '--dataset', help='The dataset to be used.',
-                        default='CIFAR-10', choices=list(DATASETS_DATA.keys()))
+                        default=DEFAULT_DATASET, choices=[d.value for d in Dataset])
     parser.add_argument('--reference-models', help='The reference models to be used.',
                         nargs='+', default=default_reference_models, choices=reference_models)
     parser.add_argument('--victim-model', help='The model to be attacked.',
                         default=default_victim_model, choices=victim_models)
+    parser.add_argument('--loss', help='The loss function to be used', default=DEFAULT_LOSS,
+                        choices=[l.value for l in ExperimentLoss], type=ExperimentLoss)
 
     # Hyperparamters
     parser.add_argument('--tau', help='Bandit exploration.',
@@ -325,6 +336,7 @@ if __name__ == '__main__':
     victim_model = args.victim_model
     reference_models = args.reference_models
     dataset = args.dataset
+    loss = args.loss
 
     tau = args.tau
     epsilon = args.epsilon
@@ -338,5 +350,5 @@ if __name__ == '__main__':
     show_images = args.show_images
     seed = args.seed
 
-    run_experiment(victim_model, reference_models, dataset, tau, epsilon,
+    run_experiment(victim_model, reference_models, dataset, loss, tau, epsilon,
                    delta, eta, eta_g, n_images, image_limit, compare_gradients, show_images, seed)

@@ -1,7 +1,16 @@
 import torch
 
+from enum import Enum
 from torchvision import datasets, transforms
 from typing import Tuple, Dict
+
+
+class Dataset(Enum):
+    """
+    Enum that contains the datasets that can be used in the experiment.
+    """
+    CIFAR_10 = 'CIFAR-10'
+
 
 """ Dict that contains data about datasets to be used,
 The dataset has a name, and the structure of each entry is the following:
@@ -11,8 +20,11 @@ dataset_name: {
     default: whether it is the default dataset to be used
 }
 """
-DATASETS_DATA = {
-    'CIFAR-10': {
+
+DEFAULT_DATASET = Dataset.CIFAR_10
+
+DATASETS = {
+    Dataset.CIFAR_10: {
         'classes': ('plane', 'car', 'bird', 'cat', 'deer',
                     'dog', 'frog', 'horse', 'ship', 'truck'),
         'dataset': datasets.CIFAR10,
@@ -21,12 +33,12 @@ DATASETS_DATA = {
 }
 
 
-def load_data(dataset: str, shuffle: bool) -> Tuple[torch.utils.data.DataLoader, Tuple[str]]:
+def load_data(dataset: Dataset, shuffle: bool) -> Tuple[torch.utils.data.DataLoader, Tuple[str]]:
     """
-    Loads a a dataset from `torchvision.datasets`. It loads the dataset, it transforms each entry
+    Loads a dataset from `torchvision.datasets`. It loads the dataset, it transforms each entry
     to a torch.Tensor, and finally returns a PyTorch dataloader. The dataset is returned as a
     training dataset, as we need the true label to check if the attack is successful.
-    
+
     The dataset is being downloaded in the `data/` folder, which is .gitignore-d by default.
     For the moment, only CIFAR-10 is implemented.
 
@@ -49,13 +61,13 @@ def load_data(dataset: str, shuffle: bool) -> Tuple[torch.utils.data.DataLoader,
         If the name of the dataset is not valid.
     """
     # Check if the dataset name is valid
-    if dataset not in list(DATASETS_DATA.keys()):
+    if dataset not in Dataset:
         raise NotImplementedError(
-            f'{dataset} is not a valid name, must be one of {list(DATASETS_DATA.keys())}'
+            f'{dataset} is not a valid name, must be one of {list(DATASETS.keys())}'
         )
 
     # Get data about the dataset
-    dataset_info = DATASETS_DATA[dataset]
+    dataset_info = DATASETS[dataset]
 
     # Load the dataset from torchvision.datasets
     data = dataset_info['dataset'](root='./data', train=True,
