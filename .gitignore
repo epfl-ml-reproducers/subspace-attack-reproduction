@@ -257,3 +257,6 @@ config.json
 aml_config
 .amlignore
 .vscode/settings.json
+
+# Mac stuff
+.DS_Store
