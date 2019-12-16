@@ -313,12 +313,12 @@ if __name__ == '__main__':
                         default=1, type=float)
     parser.add_argument('--epsilon', help='The norm budget.',
                         default=8/255, type=float)
-    parser.add_argument('--delta', help='Finite difference probe',
+    parser.add_argument('--delta', help='Finite difference probe.',
                         default=0.1, type=float)
     parser.add_argument('--eta', help='Image learning rate.',
                         default=1/255, type=float)
     parser.add_argument('--eta_g', help='OCO learning rate.',
-                        default=100, type=float)
+                        default=0.1, type=float)
 
     # Experiment settings
     parser.add_argument('--n-images', help='The number of images on which the attack has to be run',

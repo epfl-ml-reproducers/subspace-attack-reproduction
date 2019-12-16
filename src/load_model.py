@@ -4,8 +4,7 @@ from typing import Dict
 from enum import Enum
 
 from src.models.cifar.gdas import load_gdas
-from src.models.cifar import vgg
-from src.models.cifar import alexnet
+from src.models.cifar import vgg, alexnet, wrn, pyramidnet
 
 
 class ModelType(Enum):
@@ -36,6 +35,22 @@ MODELS = {
         'config': 'gdas-cifar10.config',
         'type': ModelType.VICTIM,
         'default': True
+    },
+    'wrn': {
+        'folder': 'wrn/',
+        'checkpoint': 'wrn-pth.tar',
+        'type': ModelType.VICTIM,
+        'default': False,
+        'model': wrn.wrn,
+        'depth': 28,
+        'widen_factor': 10
+    },
+    'pyramidnet': {
+        'folder': 'pyramidnet/',
+        'checkpoint': 'pyramidnet.pth',
+        'type': ModelType.VICTIM,
+        'model': pyramidnet.pyramidnet272,
+        'default': False
     },
     'vgg11_bn': {
         'folder': 'vgg11_bn/',
@@ -121,9 +136,14 @@ def load_model(name: str, num_classes: int) -> torch.nn.Module:
         )
 
         return gdas
-
-    # Initialize the model with the right number of classes
-    model = model_data['model'](num_classes=num_classes)
+    
+    # Initialize the model with the right number of classes and other params
+    if name == 'wrn':
+        depth = model_data['depth']
+        widen_factor = model_data['widen_factor']       
+        model = model_data['model'](depth=depth, num_classes=num_classes, widen_factor=widen_factor)
+    else:
+        model = model_data['model'](num_classes=num_classes)
 
     # Load the state dict of the pretrained model
     model_raw_state_dict = (

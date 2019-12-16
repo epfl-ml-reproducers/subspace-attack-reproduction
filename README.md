@@ -12,8 +12,8 @@ The dataset ([CIFAR](https://www.cs.toronto.edu/~kriz/cifar.html)) is automatica
 
 The paper is implemented and tested using Python 3.7. Dependencies are listed in [requirements.txt](requirements.txt).
 
-For the moment it is possible to run the experiment using [VGG nets](http://www.robots.ox.ac.uk/~vgg/research/very_deep/) and  [AlexNet](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf) as reference models and [GDAS](https://arxiv.org/pdf/1910.04465.pdf) as victim model. In order to run the experiment, simply run in a terminal
+For the moment it is possible to run the experiment using [VGG nets](http://www.robots.ox.ac.uk/~vgg/research/very_deep/) and [AlexNet](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf) as reference models and [GDAS](https://arxiv.org/pdf/1910.04465.pdf), [WRN](https://arxiv.org/pdf/1605.07146.pdf) and [PyramidNet](https://arxiv.org/pdf/1610.02915.pdf) as victim models. In order to run the experiment, simply run in a terminal
 
 ```bash
-python subspace-attack.py
+python experiment.py
 ```
