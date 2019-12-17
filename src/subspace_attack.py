@@ -18,6 +18,8 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
     The name of the hyperparameters are the same used in [1]. The equivalents in [2]
     are also explaned for each parameter.
 
+    The lines indicated in the comments match those in the Algorithm 1 in our reproducibility report.
+
     Parameters
     ----------
     input_batch: torch.Tensor
@@ -91,16 +93,16 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
     regmin = input_batch - epsilon
     regmax = input_batch + epsilon
 
-    # Initialize the adversarial example - L3
+    # Initialize the adversarial example - L1
     x_adv = input_batch.clone()
 
     # Set the label to be used (the predicted one vs the true one)
     y = true_label
 
-    # Initialize the gradient to be estimated - L4
+    # Initialize the gradient to be estimated - L2
     g = torch.zeros_like(input_batch)
 
-    # Initialize the dropout ratio - L5
+    # Initialize the dropout ratio - L3
     p = 0.05
     # Set the maximum dropout ratio to be used
     MAX_P = 0.5
@@ -123,10 +125,11 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
     gradient_products = []
     true_gradient_norms = []
     estimated_gradient_norms = []
-
+    
+    # Loop until the attack is successful - L4
     for q_counter in tqdm(range(0, limit, 2)):
 
-        # Load random reference model - L7
+        # Load random reference model - L5
         random_model_index = random.randint(0, len(references) - 1)
         reference_model = references[random_model_index]
 
@@ -135,7 +138,7 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
         # maximum has been reached
         reference_model.drop = min(p, MAX_P)
 
-        # Calculate the prior gradient - L8
+        # Calculate the prior gradient - L6
         # --- Compute f(x_adv) using a the reference model as f
         x_adv.requires_grad_(True)
         reference_model.zero_grad()
@@ -150,15 +153,15 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
 
         # No gradient required for the following operations
         with torch.no_grad():
-            # Calculate g_plus and g_minus - L9
+            # Calculate g_plus and g_minus - L7
             g_plus = g + tau * u
             g_minus = g - tau * u
 
-            # Normalize g+ and g-, to get direction - L10
+            # Normalize g+ and g-, to get direction - L8
             g_plus_prime = g_plus / g_plus.norm()
             g_minus_prime = g_minus / g_minus.norm()
 
-            # Compute finite difference - L11
+            # Compute finite difference - L9
             # --- Compute antithetic samples for finite differences
             x_plus = x_adv + delta * g_plus_prime
             x_minus = x_adv + delta * g_minus_prime
@@ -171,20 +174,20 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
             delta_t = ((criterion(query_plus, y) -
                         criterion(query_minus, y)) / (tau * epsilon)) * u
 
-            # Update esimated gradient - L12
+            # Update esimated gradient - L10
             g += eta_g * delta_t
 
-            # Update the adverserial example - L13
+            # Update the adverserial example - L11
             x_adv += eta * torch.sign(g)
 
-            # Fit the new example into the epsilon requirements - L14
+            # Fit the new example into the epsilon requirements - L12
             x_adv = torch.max(x_adv, regmin)
             x_adv = torch.min(x_adv, regmax)
 
-            # Make all the pixels in [0,1] to have a valid image - L15
+            # Make all the pixels in [0,1] to have a valid image - L13
             x_adv = torch.clamp(x_adv, 0, 1)
 
-        # Update dropout ratio - L16
+        # Update dropout ratio - L14
         p += 0.01
 
         # Compute the true gradient to check the difference (not in the original algorithm)
