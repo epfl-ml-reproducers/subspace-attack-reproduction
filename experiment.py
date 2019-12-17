@@ -28,7 +28,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
                    seed: int = 0) -> None:
     """
     Runs an experiment of the subspace attack on a batch of images. It outputs the results in the
-    `outputs/` folder, in a file named `YYYY-MM-DD.HH-MM.npy` The output file is a dictionary
+    `outputs/` folder, in a file named `YYYY-MM-DD.HH-MM.npy`. The output file is a dictionary
     exported with `numpy.save`. The format of the dictionary is:
 
     ```python
@@ -123,6 +123,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     # Fix the seeds for reproducibility purposes
     torch.manual_seed(seed)
     random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # Print introductory message
     print('----- Running experiment with the following settings -----')
