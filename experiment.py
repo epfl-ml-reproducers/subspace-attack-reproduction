@@ -25,7 +25,7 @@ OUTPUT_DIR = 'outputs/'
 def run_experiment(victim_model_name: str, reference_model_names: List[str], dataset: str,
                    loss: str, epsilon: float, tau: float, delta: float, eta: float, eta_g: float,
                    n_images: int, image_limit: int, compare_gradients: bool, show_images: bool,
-                   seed: int = 0) -> None:
+                   seed: int = 0, check_success: bool = True) -> None:
     """
     Runs an experiment of the subspace attack on a batch of images. It outputs the results in the
     `outputs/` folder, in a file named `YYYY-MM-DD.HH-MM.npy`. The output file is a dictionary
@@ -59,6 +59,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             'gradient_products': # The cosine similarities for each image
             'true_gradient_norms': # The norms of the true gradients for each image
             'estimated_gradient_norms': # The norms of the estimated gradients for each image
+            'true_losses': # The true losses each iteration
     }
     ```
 
@@ -112,6 +113,10 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         The seed to be used to initialize pseudo-random generators. To be used for reproducibility
         purposes.
 
+    check_success: bool
+        Whether the attack should stop if it has been successful. Default is true. You might want to
+        use false if you want to record some events (i.e. loss or gradients similarity) for all the iterations.
+
     References
     ----------
     [1] Guo, Yiwen, Ziang Yan, and Changshui Zhang. "Subspace Attack: Exploiting Promising Subspaces
@@ -148,6 +153,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     print(f'Show images: {show_images}')
     print(f'Seed: {seed}')
     print(f'GPU in use: {torch.cuda.is_available()}')
+    print(f'Check success: {check_success}')
 
     # Save experiment initial information
     experiment_info = {
@@ -169,7 +175,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             'image_limit': image_limit,
             'compare_gradients': compare_gradients,
             'gpu': torch.cuda.is_available(),
-            'seed': seed
+            'seed': seed,
+            'check_success': check_success
         },
         'results': {
             # Initialize dict entry to save results later.
@@ -182,7 +189,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     num_classes = len(classes)
 
     # Load reference models
-    reference_models = [load_model(model_name, num_classes) for model_name in reference_model_names]
+    reference_models = [load_model(model_name, num_classes)
+                        for model_name in reference_model_names]
 
     # Load victim model
     victim_model = load_model(victim_model_name, num_classes)
@@ -208,6 +216,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     all_true_gradient_norms = []
     all_estimated_gradient_norms = []
     all_gradient_products = []
+    all_true_losses = []
 
     # Initialize timing information
     run_time = datetime.datetime.now().replace(microsecond=0)
@@ -221,10 +230,10 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         print(f'Target number {counter}\n')
 
         # Attack the image
-        queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, final_model = \
+        queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, true_losses, final_model = \
             attack(data, criterion, target, tau, epsilon, delta,
                    eta_g, eta, victim_model, reference_models,
-                   image_limit, compare_gradients, show_images)
+                   image_limit, compare_gradients, show_images, check_success=check_success)
 
         counter += 1
 
@@ -234,6 +243,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         all_gradient_products.append(gradient_products)
         all_true_gradient_norms.append(true_gradient_norms)
         all_estimated_gradient_norms.append(estimated_gradient_norms)
+        all_true_losses.append(true_losses)
 
         # Stop if all the required images have been attacked
         if counter == n_images:
@@ -267,6 +277,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             all_true_gradient_norms)
         experiment_info['results']['estimated_gradient_norms'] = np.array(
             all_estimated_gradient_norms)
+        experiment_info['results']['true_losses'] = np.array(
+            all_true_losses)
 
     # Take care of results output folder
     results_path = OUTPUT_DIR
@@ -328,6 +340,8 @@ if __name__ == '__main__':
                         default=10000, type=int)
     parser.add_argument('--compare-gradients', help='Whether the program should output a comparison between the estimated and the true gradients.',
                         default=False, type=boolean_string)
+    parser.add_argument('--check-success', help='Whether the attack on each image should stop if it has been successful.',
+                        default=True, type=boolean_string)
     parser.add_argument('--show-images', help='Whether each image to be attacked, and its corresponding adversarial examples should be shown',
                         default=False, type=boolean_string)
     parser.add_argument('--seed', help='The random seed with which the experiment should be run, to be used for reproducibility purposes.',
@@ -350,6 +364,7 @@ if __name__ == '__main__':
     compare_gradients = args.compare_gradients
     show_images = args.show_images
     seed = args.seed
+    check_success = args.check_success
 
-    run_experiment(victim_model, reference_models, dataset, loss, tau, epsilon,
-                   delta, eta, eta_g, n_images, image_limit, compare_gradients, show_images, seed)
+    run_experiment(victim_model, reference_models, dataset, loss, tau, epsilon, delta, eta, eta_g,
+                   n_images, image_limit, compare_gradients, show_images, seed=seed, check_success=check_success)

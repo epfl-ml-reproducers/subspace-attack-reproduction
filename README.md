@@ -35,6 +35,7 @@ usage: experiment.py [-h] [-ds {Dataset.CIFAR_10}]
                      [--eta ETA] [--eta_g ETA_G] [--n-images N_IMAGES]
                      [--image-limit IMAGE_LIMIT]
                      [--compare-gradients COMPARE_GRADIENTS]
+                     [--check-success CHECK_SUCCESS]
                      [--show-images SHOW_IMAGES] [--seed SEED]
 
 optional arguments:
@@ -58,6 +59,9 @@ optional arguments:
   --compare-gradients COMPARE_GRADIENTS
                         Whether the program should output a comparison between
                         the estimated and the true gradients.
+  --check-success CHECK_SUCCESS
+                        Whether the attack on each image should stop if it has
+                        been successful.
   --show-images SHOW_IMAGES
                         Whether each image to be attacked, and its
                         corresponding adversarial examples should be shown
@@ -95,6 +99,7 @@ experiment_info = {
         'gradient_products': # The cosine similarities for each image
         'true_gradient_norms': # The norms of the true gradients for each image
         'estimated_gradient_norms': # The norms of the estimated gradients for each image
+        'true_losses': # The true losses each iteration
 }
 ```
 

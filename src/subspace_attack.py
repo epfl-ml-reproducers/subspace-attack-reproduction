@@ -11,7 +11,7 @@ from src.plots import imshow
 def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, true_label: int,
            epsilon: float, tau: float, delta: float, eta_g: float, eta: float, victim: torch.nn.Module,
            references: List[torch.nn.Module], limit: int, compare_gradients: bool,
-           show_images: bool) -> Tuple[int, np.array, np.array, np.array]:
+           show_images: bool, check_success: bool = True) -> Tuple[int, np.array, np.array, np.array]:
     """
     Runs the subspace attack on one image given as input.
 
@@ -63,6 +63,10 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
     show_images: bool
         Whether each image to be attacked, and its corresponding adversarial examples should be shown.
 
+    check_success: bool
+        Whether the attack should stop if it has been successful. Default is true. You might want to
+        use false if you want to record some events (i.e. loss or gradients similarity) for all the iterations.
+
     Returns
     -------
     n_queries: int
@@ -76,6 +80,9 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
 
     estimated_gradient_norms: np.array
         The norms of the estimated gradients (empty if compare_gradients == False).
+
+    true_losses: np.array
+        The losses of the true model (empty if compare_gradients == False).
 
     final_model: str
         The last reference model used.
@@ -125,14 +132,15 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
     gradient_products = []
     true_gradient_norms = []
     estimated_gradient_norms = []
-    
+    true_losses = []
+
     # Loop until the attack is successful - L4
     for q_counter in tqdm(range(0, limit, 2)):
 
         # Load random reference model - L5
         random_model_index = random.randint(0, len(references) - 1)
         reference_model = references[random_model_index]
-        
+
         # Applying the corresponsing dropout ratio:
         # it takes either the current p, or MAX_P if the
         # maximum has been reached
@@ -210,13 +218,11 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
                 gradients_product = (true_vector @ est_vector /
                                      (true_vector.norm() * est_vector.norm()))
 
-                if est_vector.norm() == 0:
-                    print('est_vector norm is 0!')
-
                 # Save everything to an array
                 gradient_products.append(gradients_product.item())
                 true_gradient_norms.append(true_gradient.norm(2).item())
                 estimated_gradient_norms.append(g.norm(2).item())
+                true_losses.append(true_loss.item())
 
         with torch.no_grad():
             # Check if the example succeeded in being misclassified
@@ -224,7 +230,7 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
             label_plus = query_plus.max(1, keepdim=True)[1].item()
 
             # If it is successful, print information about the attack, and return
-            if label_minus != true_label.item() or label_plus != true_label.item():
+            if check_success and (label_minus != true_label.item() or label_plus != true_label.item()):
                 print(f'\nSuccess! After {q_counter + 2} queries')
                 print(f'True: {true_label.item()}')
                 print(f'Label minus: {label_minus}')
@@ -234,8 +240,10 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
                 if show_images:
                     imshow(x_adv[0].cpu())
 
-                return q_counter + 2, np.array(gradient_products), np.array(true_gradient_norms), np.array(estimated_gradient_norms), reference_model.__class__.__name__
+                return (q_counter + 2, np.array(gradient_products), np.array(true_gradient_norms),
+                        np.array(estimated_gradient_norms), np.array(true_losses), reference_model.type)
 
     print(f'\nFailed! After {q_counter + 2} queries')
 
-    return -1, np.array(gradient_products), np.array(true_gradient_norms), np.array(estimated_gradient_norms), reference_model.__class__.__name__
+    return (-1, np.array(gradient_products), np.array(true_gradient_norms),
+            np.array(estimated_gradient_norms), np.array(true_losses), reference_model.type)
