@@ -132,7 +132,7 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
         # Load random reference model - L5
         random_model_index = random.randint(0, len(references) - 1)
         reference_model = references[random_model_index]
-
+        
         # Applying the corresponsing dropout ratio:
         # it takes either the current p, or MAX_P if the
         # maximum has been reached
@@ -229,7 +229,7 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
                 print(f'True: {true_label.item()}')
                 print(f'Label minus: {label_minus}')
                 print(f'Label plus: {label_plus}')
-                print(f'Final model: {reference_model.__class__.__name__}')
+                print(f'Final model: {reference_model.type}')
 
                 if show_images:
                     imshow(x_adv[0].cpu())

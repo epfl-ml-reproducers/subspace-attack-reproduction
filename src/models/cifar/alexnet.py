@@ -51,6 +51,8 @@ class AlexNet(nn.Module):
         self.features = nn.Sequential(*layers)
         self.classifier = nn.Linear(256, num_classes)
 
+        self.type = 'AlexNet'
+
         # no dropout
         self.drop = 0
 

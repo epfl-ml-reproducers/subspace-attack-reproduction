@@ -182,8 +182,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     num_classes = len(classes)
 
     # Load reference models
-    reference_models = list(map(lambda name: load_model(
-        name, num_classes), reference_model_names))
+    reference_models = [load_model(model_name, num_classes) for model_name in reference_model_names]
 
     # Load victim model
     victim_model = load_model(victim_model_name, num_classes)

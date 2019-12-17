@@ -28,7 +28,7 @@ class VGG(nn.Module):
         self.features = features
         self.classifier = nn.Linear(512, num_classes)
         self._initialize_weights()
-        self.__class__.__name__ = name
+        self.type = name
 
         # no dropout
         self.drop = 0
