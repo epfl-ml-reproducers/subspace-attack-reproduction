@@ -123,6 +123,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     # Fix the seeds for reproducibility purposes
     torch.manual_seed(seed)
     random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # Print introductory message
     print('----- Running experiment with the following settings -----')
