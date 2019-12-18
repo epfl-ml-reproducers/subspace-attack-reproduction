@@ -18,11 +18,13 @@ The paper is implemented and tested using Python 3.7. Dependencies are listed in
 
 For the moment, it is possible to run the experiment using [VGG nets](http://www.robots.ox.ac.uk/~vgg/research/very_deep/) and [AlexNet](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf) as reference models and [GDAS](https://arxiv.org/pdf/1910.04465.pdf), [WRN](https://arxiv.org/pdf/1605.07146.pdf) and [PyramidNet](https://arxiv.org/pdf/1610.02915.pdf) as victim models. In order to run the experiment, simply run in a terminal
 
-In order to run a basic experiment (i.e. AlexNet+VGGs against GDAS, 1k images, 10k maximum queries per images, and default hyperparameters), install the dependencies and run the following command.
+In order to run a basic experiment (i.e. AlexNet+VGGs against GDAS, 1k images, 10k maximum queries per images, and the hyperparameters in Table II of our report), install the dependencies and run the following command.
 
 ```bash
 python experiment.py
 ```
+
+N.B.: it takes 7 hours 45 minutes to run on a Google Cloud Platform n1-highmem-8 virtual machine, with 8 vCPU, 52 GB memory and an Nvidia Tesla T4.
 
 Moreover, the following settings can be used to customize the experiment:
 
@@ -68,6 +70,14 @@ optional arguments:
   --seed SEED           The random seed with which the experiment should be
                         run, to be used for reproducibility purposes.
 ```
+
+In order to run an experiment on 100 images in which the cosine similarity between the estimated and true gradient, for all 5000 iterations per image, regardless the success of the attack (i.e. the one used for figures 1 and 2 of our report), you should run
+
+```bash
+python3 experiment.py --check-success=False --n-images=100 --compare-gradients=True
+```
+
+N.B.: it takes around 20 hours to run the experiment on the aforementioned machine.
 
 The experiment results are saved in the `outputs/` folder, in a file named `YYYY-MM-DD.HH-MM.npy` a dictionary exported with `numpy.save()`. The format of the dictionary is:
 
