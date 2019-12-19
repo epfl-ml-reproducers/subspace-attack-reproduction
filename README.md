@@ -4,32 +4,48 @@
 
 Attempt to reproduce the NeurIPS 2019 paper [Subspace Attack: Exploiting Promising Subspaces for Query-Efficient Black-box Attacks](https://papers.nips.cc/paper/8638-subspace-attack-exploiting-promising-subspaces-for-query-efficient-black-box-attacks).
 
-The original code of the paper can be found [here](https://github.com/ZiangYan/subspace-attack.pytorch). We are trying to reproduce the attack to GDAS model trained on CIFAR-10 dataset, without using and looking at the original code.
+The original code of the paper can be found [here](https://github.com/ZiangYan/subspace-attack.pytorch). We are trying to reproduce the attack to GDAS and WRN model trained on CIFAR-10 dataset, without using and looking at the original code.
 
 This project is done as project for the [CS-433 Machine Learning Course](https://www.epfl.ch/labs/mlo/machine-learning-cs-433/) at [EPFL](https://epfl.ch/en), and as part of the [NeurIPS 2019 Reproducibility Challenge](https://reproducibility-challenge.github.io/neurips2019/).
 
 ## Usage
 
-We make use of some pretrained models, that can be downloaded [here](https://drive.google.com/file/d/1TA-UWYVDkCkNPOy1INjUU9321s-HA6RF/view?usp=sharing). They are a subset of the [models](https://drive.google.com/file/d/1aXTmN2AyNLdZ8zOeyLzpVbRHZRZD0fW0/view?usp=sharing) provided with the code of the original paper. They need to be unzipped and put in the `pretrained/` folder, in the root directory of the repo.
+We make use of some pretrained models, that can be downloaded [here](https://drive.google.com/file/d/1TA-UWYVDkCkNPOy1INjUU9321s-HA6RF/view?usp=sharing). They are a subset of the [models](https://drive.google.com/file/d/1aXTmN2AyNLdZ8zOeyLzpVbRHZRZD0fW0/view?usp=sharing) provided with the code of the original paper. They need to be unzipped and put in the `./pretrained` folder, in the root directory of the repo.
 
 The dataset ([CIFAR](https://www.cs.toronto.edu/~kriz/cifar.html)) is automatically downloaded via `torchvision.datasets` when first running the experiment, and will be saved in the `data/` folder (more info [here](https://pytorch.org/docs/stable/torchvision/datasets.html#cifar)).
 
 The paper is implemented and tested using Python 3.7. Dependencies are listed in [requirements.txt](requirements.txt).
 
-For the moment, it is possible to run the experiment using [VGG nets](http://www.robots.ox.ac.uk/~vgg/research/very_deep/) and [AlexNet](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf) as reference models and [GDAS](https://arxiv.org/pdf/1910.04465.pdf), [WRN](https://arxiv.org/pdf/1605.07146.pdf) and [PyramidNet](https://arxiv.org/pdf/1610.02915.pdf) as victim models. In order to run the experiment, simply run in a terminal
+For the moment, it is possible to run the experiment using [VGG nets](http://www.robots.ox.ac.uk/~vgg/research/very_deep/) and [AlexNet](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf) as reference models and [GDAS](https://arxiv.org/pdf/1910.04465.pdf), [WRN](https://arxiv.org/pdf/1605.07146.pdf) and [PyramidNet](https://arxiv.org/pdf/1610.02915.pdf) as victim models.
 
-In order to run a basic experiment (i.e. AlexNet+VGGs against GDAS, 1k images, 10k maximum queries per images, and the hyperparameters in Table II of our report), install the dependencies and run the following command.
+In order to test our implemenation, install the dependencies with `pip3 install --user --requirement requirements.txt`, and run the following command:
 
 ```bash
-python experiment.py
+python run.py
 ```
+
+This will run the experiment on line 5 of table II of our report, with the following settings:
+
+- Reference models: AlexNet+VGGs
+- Victim model: GDAS
+- Number of images: 1000
+- Maximum queries per image: 10000
+- 0 seed
+  
+And hyperparameters:
+
+- eta_g = 0.1
+- eta = 1/255
+- delta = 0.1
+- tau = 1.0
+- epsilon = 8/255
 
 N.B.: it takes 7 hours 45 minutes to run on a Google Cloud Platform n1-highmem-8 virtual machine, with 8 vCPU, 52 GB memory and an Nvidia Tesla T4.
 
 Moreover, the following settings can be used to customize the experiment:
 
 ```bash
-usage: experiment.py [-h] [-ds {Dataset.CIFAR_10}]
+usage: run.py [-h] [-ds {Dataset.CIFAR_10}]
                      [--reference-models {vgg11_bn,vgg13_bn,vgg16_bn,vgg19_bn,AlexNet_bn} [{vgg11_bn,vgg13_bn,vgg16_bn,vgg19_bn,AlexNet_bn} ...]]
                      [--victim-model {gdas,wrn,pyramidnet}]
                      [--loss {ExperimentLoss.CROSS_ENTROPY,ExperimentLoss.NEG_LL}]
@@ -71,10 +87,10 @@ optional arguments:
                         run, to be used for reproducibility purposes.
 ```
 
-In order to run an experiment on 100 images in which the cosine similarity between the estimated and true gradient, for all 5000 iterations per image, regardless the success of the attack (i.e. the one used for figures 1 and 2 of our report), you should run
+In order to run an experiment on 100 images in which the loss of the true model and the cosine similarity between the estimated and true gradient, for all 5000 iterations per image, regardless of the success of the attack (i.e. the one used for figures 1 and 2 of our report), you should run
 
 ```bash
-python3 experiment.py --check-success=False --n-images=100 --compare-gradients=True
+python3 run.py --check-success=False --n-images=100 --compare-gradients=True
 ```
 
 N.B.: it takes around 20 hours to run the experiment on the aforementioned machine.

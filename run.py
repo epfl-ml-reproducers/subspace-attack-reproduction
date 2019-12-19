@@ -231,7 +231,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
 
         # Attack the image
         queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, true_losses, final_model = \
-            attack(data, criterion, target, tau, epsilon, delta,
+            attack(data, criterion, target, epsilon, tau, delta,
                    eta_g, eta, victim_model, reference_models,
                    image_limit, compare_gradients, show_images, check_success=check_success)
 
@@ -366,5 +366,5 @@ if __name__ == '__main__':
     seed = args.seed
     check_success = args.check_success
 
-    run_experiment(victim_model, reference_models, dataset, loss, tau, epsilon, delta, eta, eta_g,
+    run_experiment(victim_model, reference_models, dataset, loss, epsilon, tau, delta, eta, eta_g,
                    n_images, image_limit, compare_gradients, show_images, seed=seed, check_success=check_success)
