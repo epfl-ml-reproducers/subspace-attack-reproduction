@@ -145,7 +145,7 @@ The repository is structured in the following way:
 ├── LICENSE
 ├── notebooks # Contains some notebooks used to analyze the experiments
 │   └── experiment_analysis.ipynb
-├── outputs # Should contain the outputs of the experiments
+├── outputs # Contains the .npy files obtained in the reported experiments
 ├── pretrained # Should contain the pretrained models (.pth files)
 ├── README.md # This file :)
 ├── requirements.txt # Contains information about dependencies
