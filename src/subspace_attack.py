@@ -133,6 +133,7 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
     true_gradient_norms = []
     estimated_gradient_norms = []
     true_losses = []
+    common_signs = []
 
     # Loop until the attack is successful - L4
     for q_counter in tqdm(range(0, limit, 2)):
@@ -218,11 +219,18 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
                 gradients_product = (true_vector @ est_vector /
                                      (true_vector.norm() * est_vector.norm()))
 
+                # Compare the signs
+                true_sign = true_vector.sign()
+                est_sign = est_vector.sign()
+                common_sign = ((true_sign == est_sign).sum().item() /
+                               true_sign.numel())
+
                 # Save everything to an array
                 gradient_products.append(gradients_product.item())
                 true_gradient_norms.append(true_gradient.norm(2).item())
                 estimated_gradient_norms.append(g.norm(2).item())
                 true_losses.append(true_loss.item())
+                common_signs.append(common_sign)
 
         with torch.no_grad():
             # Check if the example succeeded in being misclassified
@@ -241,9 +249,13 @@ def attack(input_batch: torch.Tensor, criterion: torch.nn.modules.loss._Loss, tr
                     imshow(x_adv[0].cpu())
 
                 return (q_counter + 2, np.array(gradient_products), np.array(true_gradient_norms),
-                        np.array(estimated_gradient_norms), np.array(true_losses), reference_model.type)
+                        np.array(estimated_gradient_norms), np.array(
+                            true_losses), np.array(common_signs),
+                        reference_model.type)
 
     print(f'\nFailed! After {q_counter + 2} queries')
 
     return (-1, np.array(gradient_products), np.array(true_gradient_norms),
-            np.array(estimated_gradient_norms), np.array(true_losses), reference_model.type)
+            np.array(estimated_gradient_norms), np.array(
+                true_losses), np.array(common_signs),
+            reference_model.type)

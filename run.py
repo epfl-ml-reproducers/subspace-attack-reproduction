@@ -217,6 +217,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
     all_estimated_gradient_norms = []
     all_gradient_products = []
     all_true_losses = []
+    all_common_signs = []
 
     # Initialize timing information
     run_time = datetime.datetime.now().replace(microsecond=0)
@@ -230,7 +231,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         print(f'Target number {counter}\n')
 
         # Attack the image
-        queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms, true_losses, final_model = \
+        (queries_counter, gradient_products, true_gradient_norms, estimated_gradient_norms,
+         true_losses, common_signs, final_model) = \
             attack(data, criterion, target, epsilon, tau, delta,
                    eta_g, eta, victim_model, reference_models,
                    image_limit, compare_gradients, show_images, check_success=check_success)
@@ -244,6 +246,7 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
         all_true_gradient_norms.append(true_gradient_norms)
         all_estimated_gradient_norms.append(estimated_gradient_norms)
         all_true_losses.append(true_losses)
+        all_common_signs.append(common_signs)
 
         # Stop if all the required images have been attacked
         if counter == n_images:
@@ -279,6 +282,8 @@ def run_experiment(victim_model_name: str, reference_model_names: List[str], dat
             all_estimated_gradient_norms)
         experiment_info['results']['true_losses'] = np.array(
             all_true_losses)
+        experiment_info['results']['common_signs'] = np.array(
+            all_common_signs)
 
     # Take care of results output folder
     results_path = OUTPUT_DIR
