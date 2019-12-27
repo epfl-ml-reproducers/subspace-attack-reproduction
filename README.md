@@ -126,6 +126,8 @@ experiment_info = {
         'true_gradient_norms': # The norms of the true gradients for each image
         'estimated_gradient_norms': # The norms of the estimated gradients for each image
         'true_losses': # The true losses each iteration
+        'common_signs': # The percentages of common signs between true and est gradients
+        'subs_common_signs': # The percentages of common signs between subsequent gradients
 }
 ```
 
